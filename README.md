@@ -2,6 +2,17 @@
 
 基于 FastAPI 的向量嵌入和检索服务，支持文档解析、向量化存储和语义检索。
 
+## 项目阶段状态
+
+| 阶段 | 内容 | 状态 |
+|-----|------|------|
+| Phase 1 | 平台基础与租户隔离（鉴权、知识库 v1 API、legacy 守卫） | ✅ 已实现并验证 |
+| Phase 2 | 幂等建库控制面（版本/阶段/重试/降级/删除补偿/一致性扫描） | ✅ 模块已实现并验证（fake 依赖单测） |
+| Phase 3-5 | 混合检索 / GraphRAG 路由与引用 / 评测与开源交付 | 🚧 进行中 |
+
+说明：Phase 2 控制面位于 `ingestion/`；旧建库流程（`services/document_service.py`，BIGINT id 模型）
+与控制面的接线将随 v1 建库 API 一并完成，暂不建过渡桥（见 `docs/superpowers/plans/2026-09-28-ingestion-control-plane.md`）。
+
 ## 功能特性
 
 - **文档处理**：支持 PDF、Word、Excel、TXT、图片、音频等多种格式

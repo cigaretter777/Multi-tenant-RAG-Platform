@@ -75,10 +75,14 @@
 
 **Tests pin:** milvus 步骤失败后重跑从该步继续且不重复删除；reconcile 只重入队超过阈值的记录。
 
-## Task 5: 接入既有建库流程（钩子）+ 阶段验收
+## Task 5: 阶段验收与状态文档（范围修订）
+
+**修订记录（2026-09-28）：** 原计划在本任务向 `services/document_service.py` 插入 `record_stage`
+钩子。执行时发现旧流程使用 BIGINT tenant/kb/file id，而控制面幂等键为 UUID 坐标；
+强行桥接（uuid5 合成 id）会引入假集成并危及稳定旧链路。决策：**钩子推迟到 v1 建库 API
+落地时与控制面原生接线**；本任务改为状态文档 + 阶段门禁。
 
 **Files:**
-- Modify: `services/document_service.py`（状态边界插入 `record_stage` 钩子，不重构主流程）
-- Modify: `README.md`（Phase 2 状态与模块说明）
+- Modify: `README.md`（阶段状态表与接线说明）
 
 **Gate:** `pytest tests -q` 全绿；`compileall ingestion`；敏感信息扫描无新增；独立 commit 每 task 一个。
