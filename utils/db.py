@@ -177,6 +177,12 @@ async def apply_control_plane_migration() -> None:
     await DatabaseManager.execute(migration_path.read_text(encoding="utf-8"))
 
 
+async def apply_ingestion_migration() -> None:
+    """执行建库控制面迁移（document_versions / ingestion_stages）"""
+    migration_path = Path(__file__).resolve().parents[1] / "migrations" / "002_ingestion.sql"
+    await DatabaseManager.execute(migration_path.read_text(encoding="utf-8"))
+
+
 async def init_database():
     """初始化数据库表"""
     try:
@@ -187,6 +193,8 @@ async def init_database():
         await DatabaseManager.execute(CREATE_SCHEMA_RAG_IF_NOT_EXISTS)
         # 控制面表（幂等迁移）
         await apply_control_plane_migration()
+        # 建库控制面表（幂等迁移）
+        await apply_ingestion_migration()
         # 再创建表
         await DatabaseManager.execute(CREATE_TABLE_PARSED_DOCUMENTS)
         # [新增] 创建任务表
