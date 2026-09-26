@@ -54,4 +54,5 @@ utils (db / milvus / embedding / 存储)  +  外部模型服务
 
 - 单元测试：131+（fake 依赖覆盖控制面、建库、检索、生成、评测指标）。
 - 需在线基础设施验证（未验证）：Milvus/Neo4j/PG 集成链路、真实 embedding/reranker
-  的检索质量、GRPO/消融战役、压测 P50/P95。脚本与 compose 已备，结果产出后记录于 `benchmarks/`。
+  的检索质量、检索消融实验（A–E，设计文档 §10.2）、压测 P50/P95。
+  脚本与 compose 已备，结果产出后记录于 `benchmarks/`。
