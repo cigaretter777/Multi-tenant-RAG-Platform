@@ -1,0 +1,12 @@
+{
+  "code": 200,
+  "data": [
+    {
+      "url": "https://example.com/research",
+      "name": "示例研究来源",
+      "snippet": "2026年，示例市场规模达到100亿元，同比增长20%。",
+      "summary": "示例市场正在增长，主要由数字化需求推动。"
+    }
+  ],
+  "msg": "success"
+}

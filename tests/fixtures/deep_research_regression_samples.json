@@ -1,0 +1,52 @@
+{
+  "simple_topic": {
+    "title": {"text": "简述人工智能"},
+    "summary": {"text": "人工智能是计算机科学分支。"},
+    "sections": [],
+    "charts": [],
+    "recommendations": []
+  },
+  "standard_with_chart": {
+    "sections": [{
+      "title": "市场规模",
+      "observation": "2024年市场规模100亿。",
+      "interpretation": "增长由需求驱动。",
+      "implication": "机会扩大。",
+      "insight": "结构性增长。"
+    }],
+    "charts": [{
+      "type": "bar",
+      "data": {"labels": ["2023", "2024"], "values": [80, 100]},
+      "chart_insight": "规模持续上升"
+    }],
+    "recommendations": [{
+      "target": "加大投入",
+      "rationale": "市场规模扩大",
+      "action": "布局核心产品",
+      "priority": "P1",
+      "risk": "回报周期较长"
+    }]
+  },
+  "web_search_structured_refs": {
+    "sections": [{
+      "title": "趋势",
+      "observation": "销量上升。",
+      "interpretation": "消费端驱动。",
+      "used_source_ids": ["s1"]
+    }],
+    "charts": [{
+      "type": "line",
+      "data": {"labels": ["Q1", "Q2"], "values": [10, 20]},
+      "chart_insight": "环比改善",
+      "data_source_refs": ["s1"],
+      "data_notes": "来自 Web snippet"
+    }],
+    "sources": [{"id": "s1", "title": "行业报道", "url": "https://example.com", "snippet": "销量上升", "summary": ""}]
+  },
+  "legacy_minimal": {
+    "title": "旧报告",
+    "summary": "摘要",
+    "sections": [{"title": "节", "content": "只有旧 content 字段"}],
+    "recommendations": [{"title": "建议", "description": "行动", "priority": "high"}]
+  }
+}

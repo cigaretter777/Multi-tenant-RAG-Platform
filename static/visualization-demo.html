@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>知识可视化演示 · RAG System</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --primary: #1a365d; --primary-light: #2c5282; --accent: #3182ce; --accent-bright: #63b3ed;
+      --bg: #f5f6f8; --surface: #fff; --surface-alt: #eef2f7; --border: #dde3ec;
+      --text: #1a202c; --muted: #64748b; --muted-light: #94a3b8;
+      --dark-bg: #0f172a; --shadow: 0 4px 24px rgba(15,23,42,.07);
+      --shadow-hover: 0 12px 40px rgba(15,23,42,.12);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --kpi-bar-1: #3182ce; --kpi-bar-2: #2c5282; --kpi-bar-3: #4299e1;
+      --kpi-bar-4: #1a365d; --kpi-bar-5: #63b3ed;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Inter","PingFang SC","Segoe UI",system-ui,sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.6; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 32px 20px 64px; }
+    header h1 { margin: 0 0 8px; font-size: 2rem; }
+    header p { margin: 0; color: var(--muted); max-width: 760px; }
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .badge { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: .85rem; color: var(--muted); }
+    .badge strong { color: var(--primary); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 16px; }
+    .tab { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 10px 16px; cursor: pointer; }
+    .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .panel { display: none; } .panel.active { display: block; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+    .card h2 { margin: 0 0 6px; font-size: 1.25rem; }
+    .card .desc { margin: 0 0 16px; color: var(--muted); font-size: .92rem; }
+    .endpoint { display: inline-block; background: #f1f5f9; border-radius: 8px; padding: 4px 10px; font-family: ui-monospace,monospace; font-size: .82rem; margin-bottom: 16px; }
+    .dr-report { margin-top: 8px; }
+    .dr-cover {
+      position: relative; overflow: hidden; background: var(--dark-bg); color: #fff;
+      border-radius: 16px; padding: 2.75rem 2rem 2.25rem; margin-bottom: 1.75rem;
+      box-shadow: var(--shadow);
+    }
+    .dr-cover::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 55% at 15% 45%, rgba(49,130,206,.35) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 45% at 85% 20%, rgba(99,179,237,.12) 0%, transparent 55%),
+        linear-gradient(135deg, #1e3a5f 0%, #2c5282 55%, #1a365d 100%);
+    }
+    .dr-cover > * { position: relative; z-index: 1; }
+    .dr-cover-accent { width: 64px; height: 3px; background: var(--accent-bright); margin-bottom: 1.25rem; }
+    .dr-cover h1 {
+      margin: 0 0 .75rem; font-size: clamp(1.6rem, 3.8vw, 2.35rem);
+      font-weight: 700; line-height: 1.25; letter-spacing: -.02em; max-width: 920px;
+    }
+    .dr-cover-lead {
+      margin: 0 0 1.25rem; font-size: .88rem; line-height: 1.65;
+      color: rgba(255,255,255,.55); max-width: 820px;
+    }
+    .dr-cover-subtitle {
+      margin: 0 0 1rem; font-size: .78rem; letter-spacing: .14em;
+      text-transform: uppercase; color: rgba(255,255,255,.38);
+    }
+    .dr-cover-meta { display: flex; flex-wrap: wrap; gap: .65rem; }
+    .cover-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+      border-radius: 999px; padding: 5px 14px; font-size: .78rem;
+      color: rgba(255,255,255,.78); font-weight: 500; backdrop-filter: blur(6px);
+    }
+    .cover-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-bright); }
+    .dr-report-body { display: flex; flex-direction: column; gap: 1.25rem; }
+    .dr-summary {
+      background: var(--surface); border-radius: 12px; padding: 1.35rem 1.5rem;
+      box-shadow: var(--shadow); border-left: 4px solid var(--accent);
+    }
+    .dr-summary-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: .5rem;
+    }
+    .dr-summary h3 { margin: 0 0 .5rem; font-size: 1.05rem; font-weight: 700; color: var(--primary); }
+    .dr-summary p { margin: 0; color: var(--text); font-size: .94rem; line-height: 1.8; }
+    .dr-nav {
+      position: sticky; top: 0; z-index: 20; background: rgba(255,255,255,.92);
+      backdrop-filter: blur(10px); border: 1px solid var(--border);
+      border-radius: 10px; margin-bottom: 1rem; box-shadow: var(--shadow);
+    }
+    .dr-nav-inner {
+      display: flex; align-items: center; gap: 1rem; overflow-x: auto;
+      padding: .65rem 1rem; scrollbar-width: none;
+    }
+    .dr-nav-inner::-webkit-scrollbar { display: none; }
+    .dr-nav-brand {
+      font-size: .72rem; font-weight: 700; color: var(--primary);
+      white-space: nowrap; flex-shrink: 0; letter-spacing: .04em;
+    }
+    .dr-nav-item {
+      font-size: .78rem; color: var(--muted); text-decoration: none;
+      white-space: nowrap; flex-shrink: 0; padding: .2rem 0;
+      border-bottom: 2px solid transparent; transition: color .2s, border-color .2s;
+    }
+    .dr-nav-item:hover { color: var(--accent); border-bottom-color: var(--accent-bright); }
+    .dr-chapter { scroll-margin-top: 72px; }
+    .chapter-header { margin-bottom: 1.1rem; }
+    .chapter-num {
+      font-size: 2.8rem; font-weight: 700; color: var(--primary);
+      opacity: .1; line-height: 1; margin-bottom: -.35rem;
+    }
+    .chapter-title {
+      margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--primary); line-height: 1.35;
+    }
+    .chapter-desc {
+      margin: .35rem 0 0; font-size: .86rem; color: var(--muted); line-height: 1.6;
+    }
+    .web-status {
+      border-radius: 10px; padding: .75rem 1rem; font-size: .84rem; line-height: 1.55;
+      margin-bottom: 1rem; border: 1px solid var(--border);
+    }
+    .web-status.ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+    .web-status.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+    .quality-banner {
+      display: flex; align-items: flex-start; gap: .55rem;
+      margin: 0 0 1rem; padding: .75rem 1rem; border-radius: 10px;
+      background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
+      font-size: .86rem; line-height: 1.55;
+    }
+    .quality-banner ul { margin: 0; padding-left: 1.1rem; }
+    .quality-banner li { margin: .15rem 0; }
+    .chart-confidence {
+      display: inline-block; margin-top: .35rem; padding: .15rem .45rem;
+      border-radius: 999px; font-size: .68rem; font-weight: 600; letter-spacing: .02em;
+    }
+    .chart-confidence.conf-verified { background: #ecfdf5; color: #065f46; }
+    .chart-confidence.conf-derived { background: #eff6ff; color: #1d4ed8; }
+    .chart-confidence.conf-unverified { background: #fef3c7; color: #92400e; }
+    .conclusion-recommendations .rec-list {
+      display: grid; gap: .75rem; margin-top: 1rem;
+    }
+    .conclusion-recommendations .rec-item {
+      background: var(--surface-alt); border: 1px solid var(--border);
+      border-radius: 8px; padding: .85rem 1rem; border-left: 3px solid var(--accent);
+    }
+    .refs-panel {
+      background: var(--surface-alt); border: 1px solid var(--border);
+      border-radius: 12px; padding: 0; overflow: hidden;
+    }
+    .refs-panel > summary {
+      cursor: pointer; list-style: none; display: flex; align-items: center;
+      gap: .65rem; padding: 1rem 1.15rem; font-weight: 700; color: var(--primary);
+      font-size: .92rem; user-select: none;
+    }
+    .refs-panel > summary::-webkit-details-marker { display: none; }
+    .refs-panel > summary::before {
+      content: "▸"; color: var(--accent); transition: transform .2s;
+    }
+    .refs-panel[open] > summary::before { transform: rotate(90deg); }
+    .refs-count {
+      font-size: .72rem; font-weight: 600; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 2px 8px;
+    }
+    .refs-provider {
+      margin-left: auto; font-size: .72rem; color: var(--muted-light); font-weight: 500;
+    }
+    .refs-panel-body { padding: 0 1.15rem 1.15rem; }
+    .inline-source-refs {
+      margin-top: .65rem; font-size: .82rem; color: var(--muted);
+      border-top: 1px dashed var(--border); padding-top: .5rem;
+    }
+    .inline-source-refs > summary {
+      cursor: pointer; list-style: none; display: flex; align-items: center; gap: .35rem;
+      font-weight: 600; color: var(--primary);
+    }
+    .inline-source-refs > summary::-webkit-details-marker { display: none; }
+    .inline-source-refs ul { margin: .35rem 0 0 1.1rem; padding: 0; }
+    .chart-data-notes {
+      margin-top: .5rem; font-size: .84rem; color: var(--muted); line-height: 1.55;
+    }
+    .source-snippet { color: var(--muted); margin-top: .35rem; font-size: .84rem; line-height: 1.6; }
+    .kpi-section { margin-bottom: .25rem; }
+    .kpi-section-title {
+      font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: .85rem;
+    }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .85rem;
+    }
+    @media (min-width: 769px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .kpi-card {
+      position: relative; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem .95rem .85rem; box-shadow: none;
+      transition: box-shadow .25s var(--ease);
+    }
+    .kpi-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--kpi-bar-1); border-radius: 10px 10px 0 0;
+    }
+    .kpi-card:nth-child(2)::before { background: var(--kpi-bar-2); }
+    .kpi-card:nth-child(3)::before { background: var(--kpi-bar-3); }
+    .kpi-card:nth-child(4)::before { background: var(--kpi-bar-4); }
+    .kpi-card:nth-child(5)::before { background: var(--kpi-bar-5); }
+    .kpi-card:nth-child(n+6)::before { background: var(--accent); }
+    .kpi-card:hover { box-shadow: var(--shadow); }
+    .kpi-index {
+      display: block; font-size: .68rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: .45rem;
+    }
+    .kpi-value {
+      display: block; font-size: clamp(1.5rem, 2.5vw, 2rem); font-weight: 700;
+      color: var(--primary); line-height: 1.15; letter-spacing: -.02em; margin-bottom: .25rem;
+    }
+    .kpi-label { display: block; font-size: .86rem; color: var(--muted); font-weight: 500; }
+    .kpi-desc { display: block; font-size: .76rem; color: var(--muted-light); margin-top: .35rem; line-height: 1.4; }
+    .dr-block {
+      background: var(--surface); border-radius: 12px; padding: 1.35rem 1.5rem;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+    }
+    .dr-block.reveal { opacity: 0; transform: translateY(16px); transition: opacity .55s var(--ease), transform .55s var(--ease); }
+    .dr-block.reveal.visible { opacity: 1; transform: translateY(0); }
+    .dr-block-title {
+      display: flex; align-items: center; font-weight: 700; font-size: 1.05rem;
+      margin-bottom: 1.1rem; color: var(--primary);
+    }
+    .dr-block-title .indicator {
+      width: 3px; height: 26px; background: var(--accent); border-radius: 2px; margin-right: 12px;
+    }
+    .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    @media (max-width: 768px) { .overview-grid { grid-template-columns: 1fr; } }
+    .overview-item {
+      background: var(--surface-alt); border-radius: 10px; padding: 1rem 1.1rem;
+      border: 1px solid var(--border); transition: border-color .2s;
+    }
+    .overview-item:hover { border-color: var(--accent-bright); }
+    .overview-item strong {
+      display: block; font-size: .72rem; color: var(--accent); margin-bottom: .4rem;
+      text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+    }
+    .finding-grid { display: grid; gap: 1rem; }
+    .finding-list { display: flex; flex-direction: column; gap: .85rem; }
+    .finding-row {
+      display: grid; grid-template-columns: 48px 1fr; gap: 1rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.1rem 1.2rem 1.1rem 1rem; align-items: start;
+      transition: box-shadow .25s var(--ease);
+    }
+    .finding-row:hover { box-shadow: var(--shadow); }
+    .finding-row.severity-high { border-left: 3px solid #dc2626; }
+    .finding-row.severity-medium { border-left: 3px solid #2563eb; }
+    .finding-row.severity-low { border-left: 3px solid #94a3b8; }
+    .finding-row-num {
+      width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: #fff;
+      font-size: .95rem; font-weight: 800; display: flex; align-items: center; justify-content: center;
+    }
+    .finding-row-body { min-width: 0; }
+    .finding-row-head {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: .5rem; margin-bottom: .45rem;
+    }
+    .finding-row-title { margin: 0; font-size: .98rem; font-weight: 700; color: var(--primary); line-height: 1.4; flex: 1; }
+    .rich-text { display: flex; flex-direction: column; gap: .65rem; }
+    .rich-para { margin: 0; font-size: .9rem; line-height: 1.75; color: var(--text); }
+    .analysis-block {
+      border-radius: 8px; padding: .65rem .85rem; font-size: .88rem; line-height: 1.7;
+    }
+    .analysis-block-label {
+      display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+      margin-bottom: .25rem;
+    }
+    .analysis-fact { background: #f8fafc; border-left: 3px solid var(--accent); }
+    .analysis-fact .analysis-block-label { color: var(--accent); }
+    .analysis-impact { background: #f0fdf4; border-left: 3px solid #16a34a; }
+    .analysis-impact .analysis-block-label { color: #16a34a; }
+    .analysis-risk { background: #fef2f2; border-left: 3px solid #dc2626; }
+    .analysis-risk .analysis-block-label { color: #dc2626; }
+    .analysis-action { background: #fff7ed; border-left: 3px solid #ea580c; }
+    .analysis-action .analysis-block-label { color: #ea580c; }
+    .analysis-block-body { color: var(--text); }
+    .section-content.rich-text { margin-top: .15rem; }
+    .finding-grid.grid-one { grid-template-columns: 1fr; }
+    .finding-grid.grid-two { grid-template-columns: repeat(2, 1fr); }
+    .finding-grid.grid-three { grid-template-columns: repeat(3, 1fr); }
+    .finding-grid.grid-many { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    @media (max-width: 768px) {
+      .finding-grid.grid-two, .finding-grid.grid-three { grid-template-columns: 1fr; }
+    }
+    .finding-card, .recommendation-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1.1rem 1.15rem; position: relative; overflow: hidden;
+      transition: box-shadow .25s var(--ease), transform .25s var(--ease);
+    }
+    .finding-card::before, .recommendation-card::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent);
+    }
+    .finding-card:hover, .recommendation-card:hover {
+      box-shadow: var(--shadow); transform: translateY(-2px);
+    }
+    .finding-card strong, .recommendation-card strong {
+      display: block; margin-bottom: .45rem; font-size: .92rem; padding-left: .35rem;
+    }
+    .analysis-card {
+      background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1.25rem 1.35rem; margin-bottom: 1rem;
+    }
+    .analysis-card:last-child { margin-bottom: 0; }
+    .analysis-card-header { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: .65rem; }
+    .section-index {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+      background: var(--primary); color: #fff; font-size: .72rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .analysis-card h4 { margin: 0; font-size: 1rem; color: var(--text); line-height: 1.4; flex: 1; }
+    .analysis-card .section-field { margin-bottom: .65rem; }
+    .field-label {
+      display: block; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted-light); margin-bottom: .25rem;
+    }
+    .analysis-card .section-summary {
+      color: var(--muted); font-size: .88rem; line-height: 1.6; padding-left: 0;
+    }
+    .analysis-card .section-summary .rich-para { color: var(--muted); font-size: .88rem; }
+    .analysis-card .section-content { margin: 0; line-height: 1.75; font-size: .92rem; color: var(--text); }
+    .section-charts { margin-top: .75rem; padding-top: .75rem; border-top: 1px dashed var(--border); }
+    .section-charts-header {
+      display: flex; align-items: center; gap: .35rem;
+      font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted-light); margin-bottom: .5rem;
+    }
+    .pill {
+      display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: .72rem;
+      font-weight: 500; margin-left: 8px; vertical-align: middle;
+    }
+    .pill.high { background: #fef2f2; color: #dc2626; }
+    .pill.medium { background: #eff6ff; color: #2563eb; }
+    .pill.low { background: #f3f4f6; color: #6b7280; }
+    .evidence-block { margin-top: .65rem; }
+    .evidence-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted-light); margin-bottom: .4rem;
+    }
+    .evidence-quote {
+      margin: 0 0 .45rem; padding: .5rem .75rem .5rem .85rem;
+      border-left: 3px solid var(--accent); background: var(--surface);
+      border-radius: 0 6px 6px 0; color: var(--muted); font-size: .84rem;
+      line-height: 1.55; font-style: italic;
+    }
+    .evidence-quote:last-child { margin-bottom: 0; }
+    .empty-state { color: var(--muted); font-size: .9rem; padding: .75rem 0; font-style: italic; }
+    .mindmap-wrap {
+      overflow: auto; padding: .85rem 1rem; background: var(--surface-alt);
+      border-radius: 10px; border: 1px solid var(--border);
+    }
+    .mindmap-wrap.mindmap-compact { max-height: none; }
+    .mindmap-wrap.mindmap-dense { max-height: 340px; }
+    .mindmap-tree ul { list-style: none; margin: 0; padding-left: 24px; }
+    .mindmap-tree > ul { padding-left: 0; display: flex; flex-direction: column; align-items: center; }
+    .mindmap-tree > ul > li { text-align: center; }
+    .mindmap-tree > ul > li > ul {
+      padding-left: 0; display: flex; flex-wrap: wrap; justify-content: center;
+      gap: .5rem 1.5rem; margin-top: .75rem;
+    }
+    .mindmap-tree > ul > li > ul > li::before, .mindmap-tree > ul > li > ul > li::after { display: none; }
+    .mindmap-tree li { position: relative; margin: 6px 0; }
+    .mindmap-tree li::before { content: ""; position: absolute; left: -14px; top: 14px; width: 14px; border-top: 2px solid #cbd5e1; }
+    .mindmap-tree li::after { content: ""; position: absolute; left: -14px; top: -8px; bottom: -8px; border-left: 2px solid #cbd5e1; }
+    .mindmap-tree > ul > li::after, .mindmap-tree > ul > li::before { display: none; }
+    .node-pill {
+      display: inline-block; background: var(--surface); border: 2px solid #93c5fd;
+      border-radius: 999px; padding: 6px 14px; font-size: .88rem; white-space: nowrap;
+    }
+    .node-pill.root {
+      background: var(--primary); border-color: var(--primary); color: #fff;
+      font-weight: 600; font-size: .95rem; padding: 8px 20px;
+    }
+    .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+    @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+    .charts-grid.cols-1 { grid-template-columns: 1fr; max-width: 640px; }
+    .chart-card {
+      border: 1px solid var(--border); border-radius: 8px; padding: .55rem .65rem .6rem;
+      background: var(--surface); display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+    }
+    .chart-card.chart-echarts { min-height: 0; }
+    .chart-card.chart-table { height: auto; min-height: 0; }
+    .chart-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+    }
+    .chart-card h3 { margin: 0 0 .2rem; font-size: .88rem; font-weight: 600; flex-shrink: 0; line-height: 1.35; }
+    .chart-card .chart-desc {
+      margin: 0 0 .35rem; color: var(--muted-light); font-size: .75rem; flex-shrink: 0;
+      line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .chart-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .chart-box { width: 100%; height: 260px; min-height: 260px; max-height: 260px; flex-shrink: 0; }
+    .chart-card.chart-table .chart-body { flex: none; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 240px; }
+    .data-table th, .data-table td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; white-space: nowrap; }
+    .data-table th { background: var(--surface-alt); font-weight: 600; font-size: .78rem; }
+    .conclusion-box {
+      background: linear-gradient(135deg, rgba(49,130,206,.08), rgba(99,179,237,.06));
+      border-radius: 10px; padding: 1.25rem 1.5rem;
+      border-left: 4px solid var(--accent); line-height: 1.75; font-size: .94rem;
+    }
+    .dr-footer {
+      text-align: center; margin-top: .5rem; padding: 1.25rem;
+      font-size: .78rem; color: var(--muted-light); border-top: 1px solid var(--border);
+    }
+    .mermaid-box { background: #fafafa; border: 1px dashed var(--border); border-radius: 10px; padding: 16px; overflow: auto; }
+    @media (prefers-reduced-motion: reduce) {
+      .dr-block.reveal { opacity: 1; transform: none; transition: none; }
+    }
+    .debug-panel {
+      margin-top: 1.25rem; padding: .85rem 1rem; background: var(--surface-alt);
+      border: 1px dashed var(--border); border-radius: 8px; font-size: .78rem; color: var(--muted);
+    }
+    .debug-panel > summary { cursor: pointer; font-weight: 600; color: var(--muted); font-size: .8rem; }
+    .debug-stats {
+      display: flex; flex-wrap: wrap; gap: .5rem; margin: .65rem 0;
+    }
+    .debug-stat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; font-size: .75rem; color: var(--text);
+    }
+    .debug-warnings { margin-top: .5rem; }
+    .debug-warnings > summary { cursor: pointer; font-size: .75rem; color: var(--muted); margin-bottom: .35rem; }
+    .debug-panel pre {
+      margin: .65rem 0 0; font-size: .72rem; overflow: auto; max-height: 160px;
+      background: var(--surface); padding: .65rem; border-radius: 6px; border: 1px solid var(--border);
+    }
+    .sample-text-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+    .sample-text-row .btn { font-size: .82rem; padding: 6px 12px; }
+    .sample-hint { font-size: .8rem; color: var(--muted); margin: 0 0 8px; }
+    .web-search-controls {
+      display: grid; grid-template-columns: 1.2fr 2fr .75fr 1fr; gap: .75rem;
+      align-items: end; margin-top: .85rem; padding: .85rem; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--surface-alt);
+    }
+    .web-search-field label {
+      display: block; font-size: .72rem; font-weight: 700; color: var(--muted);
+      margin-bottom: .25rem;
+    }
+    .web-search-field input[type="text"], .web-search-field input[type="number"] {
+      width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+      font: inherit; background: var(--surface);
+    }
+    .checkline { display: flex; align-items: center; gap: .5rem; min-height: 40px; color: var(--text); }
+    @media (max-width: 860px) { .web-search-controls { grid-template-columns: 1fr; } }
+    .sources-list { display: grid; gap: .75rem; }
+    .source-item {
+      border: 1px solid var(--border); border-radius: 10px; background: var(--surface-alt);
+      padding: .85rem 1rem;
+    }
+    .source-item strong { display: block; color: var(--primary); margin-bottom: .25rem; }
+    .source-item a { color: var(--accent); word-break: break-all; font-size: .82rem; }
+    .evidence-source-link {
+      font-size: .78rem; color: var(--muted); margin: .2rem 0 .55rem .85rem;
+      display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+    }
+    .evidence-source-link a { color: var(--accent); word-break: break-all; }
+    .source-id {
+      display: inline-block; margin-right: .5rem; color: #fff; background: var(--primary);
+      border-radius: 6px; padding: 1px 7px; font-size: .72rem; font-weight: 700;
+    }
+    .cite-ref {
+      display: inline-block; font-size: .72rem; font-weight: 600; color: var(--accent-deep);
+      background: var(--accent-soft); border-radius: 4px; padding: 0 4px; margin: 0 1px;
+      text-decoration: none; vertical-align: baseline;
+    }
+    a.cite-ref:hover { text-decoration: underline; }
+    .warning-tag {
+      display: inline-block; background: #fef3c7; color: #92400e; font-size: .72rem;
+      padding: 2px 8px; border-radius: 4px; margin: 2px 4px 2px 0;
+    }
+    .playground textarea { width: 100%; min-height: 110px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; resize: vertical; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .btn { padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: .92rem; }
+    .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .status { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: .88rem; display: none; }
+    .status.show { display: block; }
+    .status.info { background: #eff6ff; color: #1d4ed8; }
+    .status.error { background: #fef2f2; color: #b91c1c; }
+    .status.ok { background: #ecfdf5; color: #047857; }
+    pre.json-preview { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; overflow: auto; font-size: .78rem; max-height: 260px; }
+
+    /* ── Deep Research enhanced UI ── */
+    .dr-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1em; height: 1em; flex-shrink: 0; vertical-align: -.12em;
+    }
+    .dr-icon svg { width: 100%; height: 100%; fill: currentColor; }
+    .dr-cover { text-align: center; padding: 3rem 2rem 2.5rem; }
+    .dr-cover-accent { margin-left: auto; margin-right: auto; }
+    .dr-cover h1 { margin-left: auto; margin-right: auto; }
+    .dr-cover-meta { justify-content: center; }
+    .cover-pill .dr-icon { width: .9em; height: .9em; opacity: .85; }
+    .exec-dashboard {
+      display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 1rem;
+      margin-bottom: .25rem;
+    }
+    @media (max-width: 900px) { .exec-dashboard { grid-template-columns: 1fr; } }
+    .snapshot-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.25rem 1.35rem; box-shadow: var(--shadow); display: flex; flex-direction: column;
+      align-items: center; text-align: center; min-height: 220px; justify-content: center;
+    }
+    .snapshot-label {
+      font-size: .82rem; color: var(--muted); margin-bottom: .35rem;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .snapshot-value {
+      font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; color: var(--primary);
+      line-height: 1.1; letter-spacing: -.03em;
+    }
+    .snapshot-unit { font-size: .95rem; font-weight: 600; color: var(--muted); margin-left: .15rem; }
+    .snapshot-desc { font-size: .84rem; color: var(--muted); margin-top: .35rem; max-width: 260px; }
+    .snapshot-badge {
+      margin-top: .65rem; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; padding: 4px 12px; border-radius: 999px;
+    }
+    .snapshot-badge.high { background: #fef2f2; color: #dc2626; }
+    .snapshot-badge.medium { background: #eff6ff; color: #2563eb; }
+    .snapshot-badge.low { background: #f0fdf4; color: #16a34a; }
+    .metric-strip {
+      display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-top: 1rem;
+      width: 100%;
+    }
+    .metric-strip-item {
+      flex: 1 1 72px; min-width: 72px; background: var(--surface-alt); border: 1px solid var(--border);
+      border-radius: 8px; padding: .45rem .35rem; text-align: center;
+    }
+    .metric-strip-item .ms-val { display: block; font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+    .metric-strip-item .ms-lbl { display: block; font-size: .62rem; color: var(--muted); margin-top: 2px; line-height: 1.2; }
+    .insight-panels { display: flex; flex-direction: column; gap: .85rem; }
+    .insight-panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1rem 1.15rem; box-shadow: var(--shadow); border-left: 3px solid var(--accent);
+    }
+    .insight-panel-head {
+      display: flex; align-items: center; gap: .45rem; font-size: .72rem; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: .55rem;
+    }
+    .insight-panel ul { list-style: none; margin: 0; padding: 0; }
+    .insight-panel li {
+      display: flex; align-items: flex-start; gap: .55rem; font-size: .88rem; color: var(--text);
+      padding: .4rem 0; border-bottom: 1px solid var(--border); line-height: 1.55;
+    }
+    .insight-panel li:last-child { border-bottom: none; padding-bottom: 0; }
+    .insight-panel li .dr-icon { color: var(--accent); margin-top: .2rem; width: .95em; height: .95em; }
+    .insight-panel-empty { font-size: .86rem; color: var(--muted); font-style: italic; }
+    .dr-nav-item { display: inline-flex; align-items: center; gap: .35rem; }
+    .dr-nav-item .dr-icon { width: .85em; height: .85em; opacity: .65; }
+    .chapter-header { display: flex; align-items: flex-start; gap: .75rem; }
+    .chapter-header-icon {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, rgba(49,130,206,.12), rgba(99,179,237,.08));
+      color: var(--accent); display: flex; align-items: center; justify-content: center;
+      margin-top: .15rem;
+    }
+    .chapter-header-icon .dr-icon { width: 1.15em; height: 1.15em; }
+    .chapter-header-text { flex: 1; min-width: 0; }
+    .kpi-card { display: flex; gap: .75rem; align-items: flex-start; }
+    .kpi-icon-wrap {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 9px;
+      background: rgba(49,130,206,.1); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kpi-icon-wrap .dr-icon { width: 1.1em; height: 1.1em; }
+    .kpi-body { flex: 1; min-width: 0; }
+    .overview-item { display: flex; gap: .75rem; align-items: flex-start; }
+    .overview-icon {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
+      background: rgba(26,54,93,.08); color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .overview-icon .dr-icon { width: 1em; height: 1em; }
+    .overview-body { flex: 1; min-width: 0; }
+    .insight-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.15rem 1.2rem; position: relative; overflow: hidden;
+      transition: box-shadow .25s var(--ease), transform .25s var(--ease);
+    }
+    .insight-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--accent);
+    }
+    .insight-card.severity-high::before { background: #dc2626; }
+    .insight-card.severity-medium::before { background: #2563eb; }
+    .insight-card.severity-low::before { background: #6b7280; }
+    .insight-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+    .insight-card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: .55rem; gap: .5rem;
+    }
+    .insight-tag {
+      font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--muted-light); display: flex; align-items: center; gap: .35rem;
+    }
+    .insight-title { margin: 0 0 .45rem; font-size: .98rem; font-weight: 700; color: var(--primary); line-height: 1.4; }
+    .insight-body { margin: 0; font-size: .88rem; color: var(--text); line-height: 1.7; }
+    .analysis-card { border-top: 3px solid var(--accent); }
+    .analysis-card:nth-child(3n+2) { border-top-color: var(--primary-light); }
+    .analysis-card:nth-child(3n) { border-top-color: var(--accent-bright); }
+    .section-index {
+      width: auto; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 8px;
+      font-size: .82rem; letter-spacing: 0;
+    }
+    .field-label { display: flex; align-items: center; gap: .35rem; }
+    .conclusion-box {
+      display: flex; gap: .85rem; align-items: flex-start;
+    }
+    .conclusion-icon {
+      flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+      background: rgba(49,130,206,.12); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .conclusion-text { flex: 1; line-height: 1.75; font-size: .94rem; }
+    .rec-item {
+      display: grid; grid-template-columns: 56px 1fr; gap: .85rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem 1.1rem; align-items: start;
+    }
+    .rec-side { display: flex; flex-direction: column; align-items: center; gap: .35rem; }
+    .rec-num {
+      font-size: 1.1rem; font-weight: 800; color: var(--primary); line-height: 1;
+    }
+    .rec-priority {
+      font-size: .62rem; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      letter-spacing: .04em;
+    }
+    .rec-priority.p0 { background: #fef2f2; color: #dc2626; }
+    .rec-priority.p1 { background: #fff7ed; color: #ea580c; }
+    .rec-priority.p2 { background: #f3f4f6; color: #6b7280; }
+    .rec-side-icon { color: var(--muted); }
+    .rec-side-icon .dr-icon { width: 1.1em; height: 1.1em; }
+    .rec-target { font-size: .92rem; font-weight: 700; color: var(--primary); margin-bottom: .35rem; line-height: 1.45; }
+    .rec-action { font-size: .86rem; color: var(--muted); line-height: 1.65; }
+    .chart-card-head {
+      display: flex; align-items: flex-start; gap: .55rem; margin-bottom: .25rem;
+    }
+    .chart-type-icon {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px;
+      background: var(--surface-alt); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .chart-type-icon .dr-icon { width: .95em; height: .95em; }
+    .chart-card-head-text { flex: 1; min-width: 0; }
+    .chart-card-head-text h3 { margin: 0; }
+    .web-status { display: flex; align-items: flex-start; gap: .55rem; }
+    .web-status .dr-icon { margin-top: .1rem; flex-shrink: 0; }
+    .refs-panel > summary .dr-icon { width: 1em; height: 1em; color: var(--accent); }
+    .source-item { display: flex; gap: .65rem; align-items: flex-start; }
+    .source-item-icon { color: var(--accent); margin-top: .15rem; }
+    .source-item-body { flex: 1; min-width: 0; }
+    .dr-summary p { display: flex; gap: .75rem; align-items: flex-start; margin: 0; }
+    .dr-summary-text { flex: 1; color: var(--text); font-size: .94rem; line-height: 1.8; }
+    .dr-summary-icon {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 9px;
+      background: rgba(49,130,206,.1); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .evidence-label { display: flex; align-items: center; gap: .35rem; }
+    .section-insight-box {
+      margin-top: .75rem; padding: .85rem 1rem; border-radius: 8px;
+      background: linear-gradient(135deg, rgba(49,130,206,.08), rgba(99,179,237,.05));
+      border-left: 3px solid var(--accent);
+    }
+    .section-insight-text { font-size: .9rem; line-height: 1.7; color: var(--primary); font-weight: 500; }
+    .section-layer-body { font-size: .88rem; line-height: 1.7; color: var(--text); }
+    .chart-insight {
+      margin-top: .5rem; padding: .55rem .65rem; border-radius: 6px;
+      background: var(--surface-alt); font-size: .78rem; line-height: 1.55; color: var(--muted);
+    }
+    .chart-insight strong { color: var(--primary); margin-right: .35rem; }
+    .chart-interpretation { background: #f8fafc; }
+    .cross-section-box {
+      margin: 1rem 0; padding: .85rem 1rem; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--surface-alt);
+    }
+    .cross-section-box .field-label { margin-bottom: .5rem; }
+    .cross-section-box ul { margin: 0; padding-left: 1.1rem; }
+    .cross-section-box li { font-size: .88rem; line-height: 1.65; color: var(--text); margin-bottom: .35rem; }
+    .conclusion-synthesis {
+      display: grid; gap: .85rem; margin: 1rem 0;
+    }
+    .synthesis-block {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: .9rem 1rem; line-height: 1.75;
+    }
+    .synthesis-block-title {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .78rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: .45rem;
+    }
+    .synthesis-block-body { font-size: .9rem; color: var(--text); }
+    .outlook-trends-section { margin: 1.1rem 0; }
+    .outlook-trends-title {
+      font-size: .78rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: .65rem;
+    }
+    .outlook-trends-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem;
+    }
+    .trend-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: .85rem 1rem; transition: box-shadow .2s var(--ease);
+    }
+    .trend-card:hover { box-shadow: var(--shadow); }
+    .trend-num {
+      font-size: .68rem; font-weight: 700; letter-spacing: .08em;
+      color: var(--accent); margin-bottom: .25rem;
+    }
+    .trend-title {
+      font-size: .92rem; font-weight: 700; color: var(--primary);
+      line-height: 1.4; margin-bottom: .35rem;
+    }
+    .trend-desc { font-size: .84rem; color: var(--muted); line-height: 1.65; }
+    .conclusion-outlook-box {
+      margin-top: 1rem; padding: 1rem 1.15rem; border-radius: 10px;
+      background: linear-gradient(135deg, rgba(49,130,206,.08), rgba(99,179,237,.06));
+      border-left: 4px solid var(--accent);
+    }
+    .conclusion-outlook-label {
+      font-size: .72rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: .45rem;
+    }
+    .conclusion-disclaimer {
+      margin-top: 1rem; font-size: .82rem; color: var(--muted);
+      line-height: 1.65; padding: .75rem 1rem;
+      background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
+    }
+    .rec-section-title {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .78rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted); margin: 1.25rem 0 .65rem;
+    }
+    .rec-rationale, .rec-risk { font-size: .84rem; color: var(--muted); line-height: 1.6; margin-top: .35rem; }
+    .rec-rationale strong, .rec-risk strong { color: var(--text); font-weight: 600; }
+    .mindmap-section-head {
+      display: flex; align-items: center; gap: .5rem; font-size: .78rem;
+      color: var(--muted); margin-bottom: .65rem;
+    }
+    .report-toolbar { display: flex; gap: .6rem; justify-content: flex-end; margin: 0 0 1rem; flex-wrap: wrap; }
+    .report-export-btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .82rem; font-weight: 600; color: var(--accent);
+      background: var(--surface-alt); border: 1px solid var(--border);
+      border-radius: 8px; padding: .5rem .9rem; cursor: pointer;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .report-export-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    @media print {
+      @page { margin: 14mm; }
+      body { background: #fff; }
+      .container > header, .tabs, #panel-mindmap, #panel-mermaid, #panel-playground,
+      .report-toolbar, .endpoint, #panel-report > .card > h2, #panel-report > .card > .desc,
+      .dr-nav, .debug-panel { display: none !important; }
+      .container { max-width: none; margin: 0; padding: 0; }
+      #panel-report { display: block !important; }
+      #panel-report > .card { box-shadow: none; border: none; padding: 0; }
+      .dr-report, .dr-block, .dr-chapter, .analysis-card, .chart-card, .finding-row, .refs-panel {
+        break-inside: avoid; page-break-inside: avoid;
+      }
+      .dr-chapter, .dr-block { box-shadow: none !important; }
+      details, details[open] { display: block !important; }
+      details > summary { list-style: none; }
+      .refs-panel .refs-panel-body, .inline-source-refs ul { display: block !important; }
+      .reveal { opacity: 1 !important; transform: none !important; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>知识可视化演示</h1>
+      <p>展示 RAG System 当前支持的 6 种可视化形态。默认使用文档示例数据渲染；若后端 Chat 模型可用，可在底部输入文本调用真实 API。</p>
+      <div class="badges">
+        <span class="badge"><strong>1</strong> 思维导图 Mindmap</span>
+        <span class="badge"><strong>2</strong> Mermaid 流程图</span>
+        <span class="badge"><strong>3+</strong> 多种图表 bar/line/pie/area/radar/gauge…</span>
+        <span class="badge"><strong>4</strong> 表格 table</span>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="mindmap">思维导图</button>
+      <button class="tab" data-tab="mermaid">Mermaid</button>
+      <button class="tab" data-tab="report">综合报告页</button>
+      <button class="tab" data-tab="playground">API 调试</button>
+    </div>
+
+    <section id="panel-mindmap" class="panel active">
+      <div class="card">
+        <h2>独立思维导图 API</h2>
+        <p class="desc">接口返回 <code>{ title, children, id }</code> 树形结构，层级不超过 3 层。</p>
+        <div class="endpoint">POST /visualization/mindmap</div>
+        <div id="mindmap-standalone" class="mindmap-wrap mindmap-tree"></div>
+        <pre class="json-preview" id="json-mindmap"></pre>
+      </div>
+    </section>
+
+    <section id="panel-mermaid" class="panel">
+      <div class="card">
+        <h2>Mermaid 流程 / 关系图</h2>
+        <p class="desc">接口返回 <code>{ mermaid: "graph TD..." }</code>，由前端 Mermaid 库渲染。</p>
+        <div class="endpoint">POST /visualization/mermaid</div>
+        <div class="mermaid-box"><div id="mermaid-render"></div></div>
+        <pre class="json-preview" id="json-mermaid"></pre>
+      </div>
+    </section>
+
+    <section id="panel-report" class="panel">
+      <div class="card">
+        <h2>Deep Research 综合报告</h2>
+        <p class="desc">一次调用生成 KPI、研究概览、核心发现、分节分析、知识结构、图表与建议的组合报告页。</p>
+        <div class="endpoint">POST /visualization/webpage</div>
+        <div class="report-toolbar" id="report-toolbar" hidden>
+          <button type="button" class="report-export-btn" id="btn-export-print">打印 / 导出 PDF</button>
+          <button type="button" class="report-export-btn" id="btn-export-md">导出 Markdown</button>
+        </div>
+        <div id="report-root"></div>
+      </div>
+    </section>
+
+    <section id="panel-playground" class="panel">
+      <div class="card playground">
+        <h2>API 实时调用</h2>
+        <p class="desc">输入文本后调用后端可视化接口（需服务已启动且 Chat 模型可用）。</p>
+        <p class="sample-hint">通用测试样例：可填入文本后调用 API，或直接预览离线报告 JSON。</p>
+        <div class="sample-text-row">
+          <button class="btn" data-text-sample="numeric">数字型文本</button>
+          <button class="btn" data-text-sample="conceptual">概念型文本</button>
+          <button class="btn" data-text-sample="short">短文本</button>
+          <button class="btn" data-text-sample="technical">技术分类文本</button>
+        </div>
+        <div class="sample-text-row">
+          <button class="btn primary" data-preview-report="numeric">预览·数字型报告</button>
+          <button class="btn primary" data-preview-report="conceptual">预览·概念型报告</button>
+          <button class="btn primary" data-preview-report="short">预览·短文本报告</button>
+          <button class="btn primary" data-preview-report="technical">预览·技术分类报告</button>
+          <button class="btn primary" data-preview-report="webSearch">预览·Web Search 增强</button>
+        </div>
+        <textarea id="api-text">机器学习通常分为有监督学习和无监督学习两大类。有监督学习包括线性回归、逻辑回归、SVM；无监督学习包括 K-Means、层次聚类、PCA。</textarea>
+        <div class="web-search-controls">
+          <label class="checkline"><input id="web-search-enabled" type="checkbox" /> 启用 Web Search</label>
+          <div class="web-search-field">
+            <label for="web-search-query">搜索词（可为空）</label>
+            <input id="web-search-query" type="text" placeholder="为空时自动根据输入文本生成" />
+          </div>
+          <div class="web-search-field">
+            <label for="web-search-count">条数</label>
+            <input id="web-search-count" type="number" min="1" max="10" value="3" />
+          </div>
+          <label class="checkline"><input id="web-search-answer" type="checkbox" /> 请求搜索总结（默认关闭，减少延迟）</label>
+          <p class="sample-hint">Web Search 使用 Bocha 内网检索，请确保服务端 <code>WEB_SEARCH_ENABLED=true</code>、<code>WEB_SEARCH_PROVIDER=bocha_internal</code>。</p>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" data-api="mindmap">调用 Mindmap</button>
+          <button class="btn primary" data-api="mermaid">调用 Mermaid</button>
+          <button class="btn primary" data-api="webpage">调用 Webpage</button>
+          <button class="btn" id="btn-reset">恢复示例数据</button>
+        </div>
+        <div id="api-status" class="status"></div>
+        <pre class="json-preview" id="api-result"></pre>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const SAMPLES = {
+      mindmap: {
+        title: "机器学习",
+        id: 1,
+        children: [
+          { title: "有监督学习", id: 2, children: [
+            { title: "线性回归", id: 3 }, { title: "逻辑回归", id: 4 }, { title: "SVM", id: 5 }
+          ]},
+          { title: "无监督学习", id: 6, children: [
+            { title: "K-Means", id: 7 }, { title: "层次聚类", id: 8 }, { title: "PCA", id: 9 }
+          ]}
+        ]
+      },
+      mermaid: {
+        mermaid: "graph TD\nA[用户登录] --> B[验证身份]\nB --> C[查询权限]\nC --> D[返回结果]"
+      },
+      webpage: {
+        title: { id: "1", text: "2024年全球人工智能（AI）市场规模与趋势分析" },
+        summary: { id: "2", text: "2024年全球AI市场规模达4500亿美元，同比增长25%。北美领先（40%），亚太增速最快（35%）。生成式AI占30%，智能制造、金融科技紧随其后。预计2025年达5600亿美元，2026年突破6800亿美元。" },
+        kpis: [
+          { id: "2.1", label: "2024年市场规模", value: "4500亿美元", description: "全球AI市场总规模", evidence: ["2024年全球AI市场规模达4500亿美元"] },
+          { id: "2.2", label: "同比增长", value: "25%", description: "相较2023年增速", evidence: ["同比增长25%"] },
+          { id: "2.3", label: "北美市场份额", value: "40%", description: "区域占比最高", evidence: ["北美占40%"] },
+          { id: "2.4", label: "生成式AI占比", value: "30%", description: "行业应用占比", evidence: ["生成式AI占30%"] }
+        ],
+        research_overview: {
+          id: "3",
+          question: "2024年全球AI市场的规模、结构和增长趋势如何？",
+          scope: "覆盖市场规模、区域分布、行业应用、技术投入和竞争格局。",
+          method: "基于输入文本进行归纳、比较、趋势判断和结构化分析"
+        },
+        key_findings: [
+          { id: "4.1", title: "市场继续高速扩张", insight: "2024年AI市场规模达4500亿美元，同比增长25%，并延续五年增长趋势。", confidence: "high", evidence: ["2024年全球AI市场规模达4500亿美元，同比增长25%。"] },
+          { id: "4.2", title: "区域格局分化明显", insight: "北美保持领先，亚太增速最快，欧洲主要受制造业智能化推动。", confidence: "high", evidence: ["北美占40%，亚太占35%，欧洲占20%。"] },
+          { id: "4.3", title: "生成式AI成为核心引擎", insight: "生成式AI和大模型相关应用占整体市场30%，是最重要的增长引擎。", confidence: "high", evidence: ["生成式AI占30%，智能制造占22%。"] }
+        ],
+        sections: [
+          {
+            id: "5.1",
+            title: "市场规模与增长趋势",
+            summary: "AI市场从2020年的2100亿美元增长至2024年的4500亿美元。",
+            content: "连续增长说明AI正在从技术创新阶段进入规模化产业应用阶段。2024年的25%同比增速表明企业数字化转型和生成式AI商业化仍在推动需求扩张。",
+            evidence: ["2020年至2024年市场规模从2100亿美元增长至4500亿美元。", "2024年同比增长25%。"],
+            visual_refs: ["7.1"]
+          },
+          {
+            id: "5.2",
+            title: "结构分布与竞争格局",
+            summary: "区域、行业和厂商份额呈现集中与扩散并存的特点。",
+            content: "北美、亚太、欧洲构成主体市场；应用层面生成式AI、智能制造、金融科技占比较高。头部公司仍有优势，但开源生态和初创公司正在增加竞争变量。",
+            evidence: ["北美占40%，亚太占35%，欧洲占20%。", "Microsoft市场份额约18%，Google占15%，OpenAI占12%。"],
+            visual_refs: ["7.2", "7.3", "7.4"]
+          }
+        ],
+        mindmap: {
+          id: "6", title: "2024年全球AI市场全景",
+          nodes: [
+            { id: "6.1", label: "市场规模与增长", children: [
+              { id: "6.1.1", label: "2024年：4500亿美元", children: [] },
+              { id: "6.1.2", label: "同比增长：25%", children: [] }
+            ]},
+            { id: "6.2", label: "区域分布", children: [
+              { id: "6.2.1", label: "北美 40%", children: [] },
+              { id: "6.2.2", label: "亚太 35%", children: [] },
+              { id: "6.2.3", label: "欧洲 20%", children: [] }
+            ]},
+            { id: "6.3", label: "行业应用", children: [
+              { id: "6.3.1", label: "生成式AI 30%", children: [] },
+              { id: "6.3.2", label: "智能制造 22%", children: [] }
+            ]}
+          ]
+        },
+        charts: [
+          { id: "7.1", type: "line", title: "2020-2024年全球AI市场规模", description: "来自输入文本中的年度市场规模数据。", data: { categories: ["2020","2021","2022","2023","2024"], values: [2100,2600,3200,3600,4500] }},
+          { id: "7.2", type: "pie", title: "2024年区域分布", description: "来自输入文本中的区域占比数据。", data: { labels: ["北美","亚太","欧洲","其他"], values: [40,35,20,5] }},
+          { id: "7.3", type: "bar", title: "2024年行业应用占比", description: "来自输入文本中的行业应用占比。", data: { labels: ["生成式AI","智能制造","金融科技","医疗健康","零售","其他"], values: [30,22,18,15,10,5] }},
+          { id: "7.4", type: "table", title: "主要厂商市场份额", description: "来自输入文本中的主要厂商市场份额。", data: { headers: ["厂商","份额"], rows: [["Microsoft","18%"],["Google","15%"],["OpenAI","12%"],["Amazon","10%"],["Meta","8%"]] }}
+        ],
+        conclusion: { id: "8", text: "AI市场正在从高速技术扩散进入产业规模化应用阶段，生成式AI、行业解决方案和基础设施投入将继续推动未来增长。" },
+        recommendations: [
+          { id: "9.1", title: "关注生成式AI落地", description: "优先评估生成式AI在行业解决方案中的商业化机会。", priority: "high" },
+          { id: "9.2", title: "跟踪亚太市场", description: "亚太增速较快，应持续跟踪中国、日本、韩国等主要推动力量。", priority: "medium" }
+        ],
+        metadata: { id: "10", visualization_type: "deep_research_webpage", chart_count: 4, section_count: 2, finding_count: 3, kpi_count: 4, warning_count: 0, warnings: [] }
+      }
+    };
+
+    const TEXT_SAMPLES = {
+      numeric: "2024年全球AI市场规模达4500亿美元，同比增长25%。北美占40%，亚太占35%，欧洲占20%。2020年2100亿，2021年2600亿，2022年3200亿，2023年3600亿。生成式AI占30%，智能制造占22%，金融科技占18%。",
+      conceptual: "深度学习是机器学习的一个分支，通过多层神经网络自动学习数据的层次化特征表示。它在图像识别、自然语言处理和语音识别等领域取得了突破性进展。与传统机器学习相比，深度学习减少了对人工特征工程的依赖，但需要更多数据和算力。",
+      short: "敏捷开发强调迭代交付、持续反馈和跨职能协作。",
+      technical: "机器学习通常分为有监督学习和无监督学习两大类。有监督学习包括线性回归、逻辑回归、SVM、决策树和随机森林；无监督学习包括 K-Means、层次聚类、DBSCAN 和 PCA。深度学习作为子领域，包含 CNN、RNN 和 Transformer 等架构。"
+    };
+
+    const REPORT_SAMPLES = {
+      numeric: SAMPLES.webpage,
+      conceptual: {
+        title: { id: "1", text: "深度学习概念与特点研究摘要" },
+        summary: { id: "2", text: "深度学习通过多层神经网络学习层次化特征，在视觉与语言任务中表现突出，并减少人工特征工程依赖。" },
+        kpis: [],
+        research_overview: {
+          id: "3", question: "深度学习是什么，有何核心特点？",
+          scope: "概念定义、技术特征与应用方向。", method: "基于输入文本进行归纳、比较、趋势判断和结构化分析"
+        },
+        key_findings: [
+          { id: "4.1", title: "层次化特征学习", insight: "深度学习通过多层网络自动学习数据的层次化表示。", confidence: "high", evidence: ["通过多层神经网络自动学习数据的层次化特征表示"] },
+          { id: "4.2", title: "应用广泛", insight: "在图像识别、NLP 和语音识别等领域取得突破。", confidence: "medium", evidence: ["在图像识别、自然语言处理和语音识别等领域取得了突破性进展"] }
+        ],
+        sections: [
+          { id: "5.1", title: "基本定义", summary: "深度学习是机器学习的分支。", content: "其核心是通过神经网络逐层提取抽象特征，使模型能够处理高维复杂数据。", evidence: ["深度学习是机器学习的一个分支"], visual_refs: [] },
+          { id: "5.2", title: "优势与代价", summary: "减少特征工程，但需要更多资源。", content: "相较传统方法，深度学习降低人工特征设计成本，但对数据规模与算力要求更高。", evidence: ["减少了对人工特征工程的依赖，但需要更多数据和算力"], visual_refs: [] }
+        ],
+        mindmap: {
+          id: "6", title: "深度学习",
+          nodes: [
+            { id: "6.1", label: "核心特征", children: [{ id: "6.1.1", label: "层次化表示", children: [] }] },
+            { id: "6.2", label: "典型应用", children: [{ id: "6.2.1", label: "视觉/NLP/语音", children: [] }] }
+          ]
+        },
+        charts: [],
+        conclusion: { id: "8", text: "深度学习以自动特征学习为核心优势，适合复杂感知与理解类任务。" },
+        recommendations: [{ id: "9.1", title: "评估适用场景", description: "在数据与算力充足时优先考虑深度学习方案。", priority: "medium" }],
+        metadata: { id: "10", visualization_type: "deep_research_webpage", chart_count: 0, section_count: 2, finding_count: 2, kpi_count: 0, warning_count: 0, warnings: [] }
+      },
+      short: {
+        title: { id: "1", text: "敏捷开发核心原则简述" },
+        summary: { id: "2", text: "敏捷开发关注迭代交付、持续反馈与团队协作。" },
+        kpis: [],
+        research_overview: { id: "3", question: "敏捷开发的核心是什么？", scope: "短文本所及范围。", method: "基于输入文本进行归纳、比较、趋势判断和结构化分析" },
+        key_findings: [],
+        sections: [{ id: "5.1", title: "核心要素", summary: "三大关键词。", content: "迭代交付保证节奏，持续反馈降低偏差，跨职能协作提升响应速度。", evidence: ["迭代交付、持续反馈和跨职能协作"], visual_refs: [] }],
+        mindmap: { id: "6", title: "敏捷开发", nodes: [] },
+        charts: [],
+        conclusion: { id: "8", text: "敏捷的本质是以小步快跑的方式持续交付价值。" },
+        recommendations: [],
+        metadata: { id: "10", visualization_type: "deep_research_webpage", chart_count: 0, section_count: 1, finding_count: 0, kpi_count: 0, warning_count: 0, warnings: [] }
+      },
+      technical: {
+        title: { id: "1", text: "机器学习技术分类体系概览" },
+        summary: { id: "2", text: "机器学习分为有监督与无监督两大类，深度学习是包含 CNN、RNN、Transformer 的重要子领域。" },
+        kpis: [],
+        research_overview: {
+          id: "3", question: "机器学习有哪些主要技术分类？",
+          scope: "监督/无监督算法及深度学习架构。", method: "基于输入文本进行归纳、比较、趋势判断和结构化分析"
+        },
+        key_findings: [
+          { id: "4.1", title: "两大学习范式", insight: "有监督与无监督构成机器学习主体框架。", confidence: "high", evidence: ["机器学习通常分为有监督学习和无监督学习两大类"] }
+        ],
+        sections: [
+          {
+            id: "5.1", title: "有监督学习", summary: "面向标注数据的学习方法。",
+            content: "常见算法包括线性回归、逻辑回归、SVM、决策树和随机森林，适用于分类与回归任务。",
+            evidence: ["有监督学习包括线性回归、逻辑回归、SVM、决策树和随机森林"], visual_refs: []
+          },
+          {
+            id: "5.2", title: "无监督与深度学习", summary: "聚类降维与神经网络架构。",
+            content: "无监督侧包含 K-Means、层次聚类、DBSCAN、PCA；深度学习侧涵盖 CNN、RNN 与 Transformer。",
+            evidence: ["无监督学习包括 K-Means、层次聚类、DBSCAN 和 PCA", "深度学习作为子领域，包含 CNN、RNN 和 Transformer 等架构"], visual_refs: []
+          }
+        ],
+        mindmap: {
+          id: "6", title: "机器学习",
+          nodes: [
+            { id: "6.1", label: "有监督学习", children: [
+              { id: "6.1.1", label: "线性/逻辑回归", children: [] },
+              { id: "6.1.2", label: "SVM/树模型", children: [] }
+            ]},
+            { id: "6.2", label: "无监督学习", children: [
+              { id: "6.2.1", label: "K-Means/PCA", children: [] }
+            ]},
+            { id: "6.3", label: "深度学习", children: [
+              { id: "6.3.1", label: "CNN/RNN/Transformer", children: [] }
+            ]}
+          ]
+        },
+        charts: [],
+        conclusion: { id: "8", text: "理解算法分类有助于根据任务类型选择合适方法。" },
+        recommendations: [{ id: "9.1", title: "按任务选型", description: "先判断监督/无监督场景，再评估是否引入深度学习。", priority: "high" }],
+        metadata: { id: "10", visualization_type: "deep_research_webpage", chart_count: 0, section_count: 2, finding_count: 1, kpi_count: 0, warning_count: 0, warnings: [], web_search_requested: false, web_search_enabled: false, source_count: 0 }
+      },
+      webSearch: {
+        title: { id: "1", text: "2026年新能源汽车市场 Deep Research（Web 增强）" },
+        summary: { id: "2", text: "结合用户输入与 Web Search 公开信息，NEV 市场延续增长，政策与渗透率是核心变量。" },
+        kpis: [
+          { id: "2.1", label: "市场规模", value: "100亿元", description: "来自 Web 来源 snippet。", evidence: ["[s1] 2026年，示例市场规模达到100亿元，同比增长20%。"] }
+        ],
+        research_overview: {
+          id: "3",
+          question: "2026年新能源汽车市场的规模与驱动因素如何？",
+          scope: "市场规模、增长驱动、政策与渗透率。",
+          method: "基于输入文本，并结合 Web Search 公开信息补充分析"
+        },
+        key_findings: [
+          { id: "4.1", title: "市场继续扩张", insight: "示例市场规模达到100亿元，同比增长20%。", confidence: "high", evidence: ["[s1] 2026年，示例市场规模达到100亿元，同比增长20%。"] },
+          { id: "4.2", title: "数字化驱动", insight: "增长主要由数字化需求推动。", confidence: "medium", evidence: ["[s1] 示例市场正在增长，主要由数字化需求推动。"] }
+        ],
+        sections: [
+          {
+            id: "5.1", title: "市场规模与增速", summary: "Web 来源显示示例市场百亿元量级。",
+            content: "在用户研究主题基础上，公开检索材料显示示例市场 2026 年规模约 100 亿元，同比增速 20%，说明需求侧仍具扩张动能。",
+            evidence: ["[s1] 2026年，示例市场规模达到100亿元，同比增长20%。"], visual_refs: ["7.1"]
+          }
+        ],
+        mindmap: {
+          id: "6", title: "NEV 市场结构",
+          nodes: [
+            { id: "6.1", label: "市场规模", children: [{ id: "6.1.1", label: "100亿元", children: [] }] },
+            { id: "6.2", label: "增长驱动", children: [{ id: "6.2.1", label: "数字化需求", children: [] }] }
+          ]
+        },
+        charts: [
+          { id: "7.1", type: "bar", title: "示例市场规模", description: "数据来自 [s1] snippet。", data: { labels: ["2026"], values: [100] } }
+        ],
+        conclusion: { id: "8", text: "NEV 市场在 Web 公开信息与用户主题交叉验证下，仍呈现规模扩张与结构升级并进的特征。" },
+        recommendations: [{ id: "9.1", title: "跟踪渗透率", description: "持续跟踪政策与渗透率变化对需求的影响。", priority: "high" }],
+        sources: [
+          { id: "s1", title: "示例研究来源", url: "https://example.com/research", snippet: "2026年，示例市场规模达到100亿元，同比增长20%。", summary: "示例市场正在增长，主要由数字化需求推动。" }
+        ],
+        metadata: {
+          id: "10", visualization_type: "deep_research_webpage", chart_count: 1, section_count: 1, finding_count: 2, kpi_count: 1,
+          web_search_requested: true, web_search_enabled: true, web_search_provider: "bocha_internal",
+          web_search_query: "2026 新能源汽车 市场规模", source_count: 1,
+          warning_count: 0, warnings: []
+        }
+      }
+    };
+
+    mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+    }
+
+    function stripSourceMarkers(value) {
+      return String(value || "")
+        .replace(/\s*\[Web Answer\]\s*/gi, " ")
+        .replace(/\s+([，。；：、,.!?！？])/g, "$1");
+    }
+
+    function buildCiteNoMap(sources) {
+      const map = new Map();
+      (sources || []).forEach(s => {
+        const id = String(s.id || "").trim();
+        if (!id) return;
+        const no = s.cite_no != null ? Number(s.cite_no) : null;
+        if (no && Number.isFinite(no)) map.set(id, no);
+      });
+      return map;
+    }
+
+    function citeDisplayNo(id, sources) {
+      const sid = String(id || "").trim();
+      const src = (sources || []).find(s => String(s.id) === sid);
+      if (src && src.cite_no != null) return String(src.cite_no);
+      const map = buildCiteNoMap(sources);
+      if (map.has(sid)) return String(map.get(sid));
+      const m = sid.match(/^s(\d+)$/i);
+      return m ? m[1] : sid;
+    }
+
+    function linkifySourceMarkers(text, sources) {
+      const srcMap = new Map((sources || []).map(s => [String(s.id), s]));
+      return esc(String(text || "")).replace(/\[s(\d+)\]/gi, (match, num) => {
+        const id = `s${num}`;
+        const src = srcMap.get(id);
+        const label = citeDisplayNo(id, sources);
+        const anchor = `source-${label}`;
+        if (src && src.url) {
+          return `<a class="cite-ref" href="${esc(src.url)}" target="_blank" rel="noreferrer" title="${esc(src.title || `[${label}]`)}">[${esc(label)}]</a>`;
+        }
+        if (src) {
+          return `<a class="cite-ref cite-ref-local" href="#${esc(anchor)}" title="${esc(src.title || `[${label}]`)}">[${esc(label)}]</a>`;
+        }
+        return esc(match);
+      });
+    }
+
+    function renderRichText(text, sources) {
+      const raw = stripSourceMarkers(text).trim();
+      if (!raw) return "";
+      if (/(说明|影响|风险|建议)[：:]/m.test(raw)) {
+        const parts = raw.split(/(?=(?:^|\n)(?:说明|影响|风险|建议)[：:])/m).filter(Boolean);
+        const clsMap = { "说明": "fact", "影响": "impact", "风险": "risk", "建议": "action" };
+        return `<div class="rich-text structured">${parts.map(part => {
+          const m = part.trim().match(/^(说明|影响|风险|建议)[：:]\s*([\s\S]*)$/);
+          if (!m) return `<p class="rich-para">${linkifySourceMarkers(part.trim(), sources)}</p>`;
+          const cls = clsMap[m[1]] || "fact";
+          return `<div class="analysis-block analysis-${cls}"><div class="analysis-block-label">${esc(m[1])}</div><div class="analysis-block-body">${linkifySourceMarkers(m[2].trim(), sources)}</div></div>`;
+        }).join("")}</div>`;
+      }
+      const paras = raw.split(/\n\s*\n+/).filter(p => p.trim());
+      if (paras.length > 1) {
+        return `<div class="rich-text">${paras.map(p => `<p class="rich-para">${linkifySourceMarkers(p.trim(), sources)}</p>`).join("")}</div>`;
+      }
+      return `<div class="rich-text"><p class="rich-para">${linkifySourceMarkers(raw, sources)}</p></div>`;
+    }
+
+    function collectCitedSourceIds(data) {
+      const cited = new Set();
+      const addIds = (ids) => {
+        (Array.isArray(ids) ? ids : []).forEach(id => {
+          const sid = String(id || "").trim();
+          if (/^s\d+$/i.test(sid)) cited.add(sid);
+        });
+      };
+      const addText = (text) => {
+        const raw = String(text || "");
+        const re = /\[s(\d+)\]/gi;
+        let m;
+        while ((m = re.exec(raw))) cited.add(`s${m[1]}`);
+      };
+      (data.sections || []).forEach(s => {
+        addIds(s.used_source_ids);
+        ["title", "summary", "content", "observation", "interpretation", "mechanism", "implication", "uncertainty", "outlook", "insight"]
+          .forEach(k => addText(s[k]));
+      });
+      (data.key_findings || []).forEach(f => {
+        addIds(f.used_source_ids);
+        addText(f.title);
+        addText(f.insight);
+      });
+      (data.recommendations || []).forEach(r => {
+        addIds(r.used_source_ids);
+        ["target", "rationale", "action", "risk", "title", "description"].forEach(k => addText(r[k]));
+      });
+      (data.charts || []).forEach(c => {
+        addIds(c.data_source_refs);
+        ["title", "description", "chart_insight", "interpretation", "data_notes"].forEach(k => addText(c[k]));
+      });
+      const summary = data.summary;
+      if (summary && typeof summary === "object") addText(summary.text);
+      const conclusion = data.conclusion;
+      if (conclusion && typeof conclusion === "object") {
+        ["text", "headline", "problem_analysis", "root_causes", "strategic_implications", "disclaimer"]
+          .forEach(k => addText(conclusion[k]));
+      }
+      return cited;
+    }
+
+    function getDisplaySources(data) {
+      const sources = Array.isArray(data.sources) ? data.sources.filter(s => s && typeof s === "object") : [];
+      const meta = data.metadata || {};
+      const cited = collectCitedSourceIds(data);
+      if (cited.size) {
+        return sources.filter(s => cited.has(String(s.id)));
+      }
+      // Web Search：无法从正文解析引用时，仅在后端已裁剪 sources 时展示
+      if (meta.web_search_enabled || meta.web_search_requested) {
+        const citedCount = meta.cited_source_count ?? meta.source_count;
+        if (typeof citedCount === "number" && citedCount >= 0 && sources.length === citedCount) {
+          return sources;
+        }
+        return [];
+      }
+      return sources;
+    }
+
+    function nodeLabel(n) { return n.title || n.label || n.text || "节点"; }
+
+    function buildTreeList(nodes, isRoot) {
+      if (!nodes || !nodes.length) return "";
+      const items = nodes.map(n => {
+        const kids = n.children || n.nodes;
+        const sub = kids && kids.length ? `<ul>${buildTreeList(Array.isArray(kids) ? kids : [], false)}</ul>` : "";
+        const cls = isRoot ? "node-pill root" : "node-pill";
+        return `<li><span class="${cls}">${esc(nodeLabel(n))}</span>${sub}</li>`;
+      }).join("");
+      return items;
+    }
+
+    function renderMindmapTree(containerId, data) {
+      const el = document.getElementById(containerId);
+      const rootLabel = nodeLabel(data);
+      const kids = data.children || data.nodes || [];
+      el.innerHTML = `<ul><li><span class="node-pill root">${esc(rootLabel)}</span>${kids.length ? `<ul>${buildTreeList(kids, false)}</ul>` : ""}</li></ul>`;
+    }
+
+    async function renderMermaid(code) {
+      const box = document.getElementById("mermaid-render");
+      box.innerHTML = "";
+      const id = "mmd-" + Date.now();
+      const { svg } = await mermaid.render(id, code);
+      box.innerHTML = svg;
+    }
+
+    const CHART_COLORS = ["#3182ce", "#2c5282", "#4299e1", "#63b3ed", "#1a365d", "#48bb78", "#ed8936", "#e53e3e"];
+
+    const chartManager = {
+      instances: new Map(),
+      observers: new Map(),
+      resizeBound: false,
+      disposeAll() {
+        this.instances.forEach(inst => { try { inst.dispose(); } catch (_) {} });
+        this.instances.clear();
+        this.observers.forEach(ro => { try { ro.disconnect(); } catch (_) {} });
+        this.observers.clear();
+      },
+      resizeAll() {
+        this.instances.forEach(inst => { try { inst.resize(); } catch (_) {} });
+      },
+      bindResize() {
+        if (this.resizeBound) return;
+        window.addEventListener("resize", () => this.resizeAll());
+        this.resizeBound = true;
+      },
+      render(container, chart) {
+        if (!container) return;
+        const key = container.id || String(container);
+        const doInit = () => {
+          if (this.instances.has(key)) {
+            try { this.instances.get(key).dispose(); } catch (_) {}
+          }
+          const inst = echarts.init(container);
+          inst.setOption(buildChartOption(chart), { notMerge: true });
+          inst.resize();
+          this.instances.set(key, inst);
+          this.bindResize();
+        };
+        const tryInit = () => {
+          if (container.clientWidth > 0 && container.clientHeight > 0) {
+            doInit();
+            return;
+          }
+          if (this.observers.has(key)) return;
+          const ro = new ResizeObserver(() => {
+            if (container.clientWidth > 0 && container.clientHeight > 0) {
+              ro.disconnect();
+              this.observers.delete(key);
+              doInit();
+            }
+          });
+          ro.observe(container);
+          this.observers.set(key, ro);
+        };
+        requestAnimationFrame(tryInit);
+      }
+    };
+
+    function coerceChartValues(values) {
+      return (values || []).map(v => {
+        if (typeof v === "number" && Number.isFinite(v)) return v;
+        if (typeof v === "string") {
+          const cleaned = v.replace(/[,，%％]/g, "").trim();
+          const n = parseFloat(cleaned);
+          return Number.isFinite(n) ? n : v;
+        }
+        return v;
+      });
+    }
+
+    function axisCategoryValues(d) {
+      return d.categories || d.labels || [];
+    }
+
+    function buildChartOption(chart) {
+      const d = chart.data || {};
+      const values = coerceChartValues(d.values);
+      const baseGrid = { left: 48, right: 24, top: 36, bottom: 48, containLabel: true };
+      const type = chart.type;
+
+      if (type === "bar" || type === "funnel") {
+        return {
+          color: CHART_COLORS,
+          tooltip: { trigger: "axis" },
+          grid: baseGrid,
+          xAxis: { type: "category", data: d.labels || [], axisLabel: { color: "#6b7280", fontSize: 11 } },
+          yAxis: { type: "value", axisLabel: { color: "#6b7280" }, splitLine: { lineStyle: { color: "rgba(107,114,128,.12)" } } },
+          series: [{
+            type: type === "funnel" ? "funnel" : "bar",
+            data: type === "funnel"
+              ? (d.labels || []).map((l, i) => ({ name: l, value: values[i] }))
+              : values,
+            itemStyle: { borderRadius: type === "bar" ? [6, 6, 0, 0] : undefined },
+            barMaxWidth: 48
+          }]
+        };
+      }
+      if (type === "horizontal_bar") {
+        return {
+          color: CHART_COLORS,
+          tooltip: { trigger: "axis" },
+          grid: { ...baseGrid, left: 80 },
+          xAxis: { type: "value", axisLabel: { color: "#6b7280" }, splitLine: { lineStyle: { color: "rgba(107,114,128,.12)" } } },
+          yAxis: { type: "category", data: d.labels || [], axisLabel: { color: "#6b7280", fontSize: 11 } },
+          series: [{ type: "bar", data: values, itemStyle: { borderRadius: [0, 6, 6, 0] }, barMaxWidth: 36 }]
+        };
+      }
+      if (type === "stacked_bar") {
+        const series = (d.series || []).map(s => ({
+          name: s.name || "",
+          type: "bar",
+          stack: "total",
+          data: coerceChartValues(s.values),
+          barMaxWidth: 40
+        }));
+        return {
+          color: CHART_COLORS,
+          tooltip: { trigger: "axis" },
+          legend: { top: 0, textStyle: { fontSize: 11 } },
+          grid: { ...baseGrid, top: 48 },
+          xAxis: { type: "category", data: d.labels || [], axisLabel: { color: "#6b7280", fontSize: 11 } },
+          yAxis: { type: "value", axisLabel: { color: "#6b7280" }, splitLine: { lineStyle: { color: "rgba(107,114,128,.12)" } } },
+          series
+        };
+      }
+      if (type === "line" || type === "area") {
+        return {
+          color: CHART_COLORS,
+          tooltip: { trigger: "axis" },
+          grid: baseGrid,
+          xAxis: { type: "category", data: axisCategoryValues(d), axisLabel: { color: "#6b7280", fontSize: 11 } },
+          yAxis: { type: "value", axisLabel: { color: "#6b7280" }, splitLine: { lineStyle: { color: "rgba(107,114,128,.12)" } } },
+          series: [{
+            type: "line",
+            smooth: true,
+            data: values,
+            areaStyle: type === "area" ? { opacity: 0.25 } : { opacity: 0.15 },
+            symbolSize: 6
+          }]
+        };
+      }
+      if (type === "pie" || type === "donut") {
+        const items = (d.labels || []).map((l, i) => ({ name: l, value: values[i] }));
+        const inner = type === "donut" ? "42%" : "0%";
+        return {
+          color: CHART_COLORS,
+          tooltip: { trigger: "item" },
+          legend: { orient: "vertical", right: 8, top: "center", textStyle: { fontSize: 11 } },
+          series: [{ type: "pie", radius: [inner, "68%"], center: ["40%", "50%"], data: items, label: { fontSize: 11 } }]
+        };
+      }
+      if (type === "scatter") {
+        let scatterData;
+        if (Array.isArray(d.points) && d.points.length) {
+          scatterData = d.points.map(p => [p[0], p[1]]);
+        } else {
+          scatterData = (d.x || []).map((x, i) => [x, (d.y || [])[i]]);
+        }
+        return {
+          color: CHART_COLORS,
+          tooltip: { trigger: "item" },
+          grid: baseGrid,
+          xAxis: { type: "value", axisLabel: { color: "#6b7280" }, splitLine: { lineStyle: { color: "rgba(107,114,128,.12)" } } },
+          yAxis: { type: "value", axisLabel: { color: "#6b7280" }, splitLine: { lineStyle: { color: "rgba(107,114,128,.12)" } } },
+          series: [{ type: "scatter", data: scatterData, symbolSize: 10 }]
+        };
+      }
+      if (type === "radar") {
+        const indicators = (d.indicators || []).map(ind => ({
+          name: ind.name,
+          max: ind.max != null ? ind.max : 100
+        }));
+        let seriesData;
+        if (Array.isArray(d.series) && d.series.length) {
+          seriesData = d.series.map(s => ({ name: s.name || "", value: coerceChartValues(s.values) }));
+        } else {
+          seriesData = [{ value: coerceChartValues(d.values) }];
+        }
+        return {
+          color: CHART_COLORS,
+          tooltip: {},
+          radar: { indicator: indicators, radius: "62%" },
+          series: [{ type: "radar", data: seriesData }]
+        };
+      }
+      if (type === "gauge") {
+        const max = d.max != null ? d.max : 100;
+        const numVal = coerceChartValues([d.value])[0];
+        return {
+          series: [{
+            type: "gauge",
+            min: 0,
+            max,
+            detail: { formatter: "{value}", fontSize: 18 },
+            data: [{ value: numVal, name: d.name || "" }],
+            progress: { show: true, width: 12 },
+            axisLine: { lineStyle: { width: 12 } }
+          }]
+        };
+      }
+      if (type === "heatmap") {
+        const xLabels = d.xLabels || [];
+        const yLabels = d.yLabels || [];
+        const heatData = [];
+        (d.values || []).forEach((row, yi) => {
+          (row || []).forEach((val, xi) => {
+            heatData.push([xi, yi, val]);
+          });
+        });
+        return {
+          tooltip: { position: "top" },
+          grid: { ...baseGrid, bottom: 60 },
+          xAxis: { type: "category", data: xLabels, splitArea: { show: true } },
+          yAxis: { type: "category", data: yLabels, splitArea: { show: true } },
+          visualMap: { min: 0, max: Math.max(...heatData.map(h => h[2]), 1), calculable: true, orient: "horizontal", left: "center", bottom: 0 },
+          series: [{ type: "heatmap", data: heatData, label: { show: false } }]
+        };
+      }
+      // 未知类型回退：有 labels + values 则按柱状图渲染
+      if ((d.labels || []).length && values.length) {
+        return buildChartOption({ ...chart, type: "bar" });
+      }
+      return {};
+    }
+
+    function isTableChart(chart) {
+      return chart.type === "table";
+    }
+
+    function chartHasRenderableData(chart) {
+      if (!chart || !chart.type) return false;
+      const d = chart.data || {};
+      if (chart.type === "table") {
+        return Array.isArray(d.headers) && d.headers.length > 0
+          && Array.isArray(d.rows) && d.rows.length > 0;
+      }
+      if (["bar", "pie", "funnel", "donut", "horizontal_bar"].includes(chart.type)) {
+        return (d.labels || []).length > 0 && (d.values || []).length > 0;
+      }
+      if (["line", "area"].includes(chart.type)) {
+        const cats = d.categories || d.labels || [];
+        return cats.length > 0 && (d.values || []).length > 0;
+      }
+      if (chart.type === "gauge") return d.value != null;
+      if (chart.type === "scatter") {
+        return (d.points || []).length > 0 || ((d.x || []).length > 0 && (d.y || []).length > 0);
+      }
+      if (chart.type === "radar") {
+        return (d.indicators || []).length > 0 && ((d.values || []).length > 0 || (d.series || []).length > 0);
+      }
+      if (chart.type === "stacked_bar") {
+        return (d.labels || []).length > 0 && (d.series || []).length > 0;
+      }
+      if (chart.type === "heatmap") {
+        return (d.xLabels || []).length > 0 && (d.yLabels || []).length > 0 && (d.values || []).length > 0;
+      }
+      return false;
+    }
+
+    function filterRenderableCharts(charts) {
+      return (charts || []).filter(chartHasRenderableData);
+    }
+
+    function renderChart(el, chart) {
+      chartManager.render(el, chart);
+    }
+
+    function renderTable(chart) {
+      const d = chart.data || {};
+      const headers = d.headers || [];
+      const rows = d.rows || [];
+      let html = `<div class="table-scroll"><table class="data-table"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>`;
+      rows.forEach(r => { html += `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`; });
+      return html + "</tbody></table></div>";
+    }
+
+    const ICONS = {
+      "chart-bar": '<path d="M3 17V7h4v10H3zm7 0V3h4v14h-4zm7 0v-7h4v7h-4z"/>',
+      "chart-line": '<path d="M3 17l5-6 4 3 7-9 2 2v10H3V17z"/>',
+      "chart-pie": '<path d="M12 2a10 10 0 1 0 10 10h-8a2 2 0 0 1-2-2V2zm2 0v8h8a8 8 0 0 0-8-8z"/>',
+      "chart-area": '<path d="M3 17V7l5 4 4-5 7 8v3H3z"/>',
+      "chart-table": '<path d="M4 5h16v14H4V5zm2 2v2h12V7H6zm0 4v2h12v-2H6zm0 4v2h7v-2H6z"/>',
+      "chart-radar": '<path d="M12 3l8 14H4L12 3zm0 4.5L8.8 15h6.4L12 7.5z"/>',
+      "chart-gauge": '<path d="M12 4a8 8 0 0 0-8 8h2a6 6 0 1 1 6 6v2a8 8 0 0 0 0-16zm-1 8V1.5l3 3 1.4-1.4-2.6-2.6V8H11z"/>',
+      "chart-default": '<path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/>',
+      finding: '<path d="M12 2a7 7 0 0 1 4 12.7V18a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3.3A7 7 0 0 1 12 2zm0 2a5 5 0 0 0-3 9v3h6v-3a5 5 0 0 0-3-9zm-1 8h2v2h-2v-2z"/>',
+      section: '<path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h12V6H6zm2 2h8v2H8V8zm0 4h8v2H8v-2z"/>',
+      kpi: '<path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7l3-7z"/>',
+      overview: '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>',
+      mindmap: '<path d="M12 2a2 2 0 0 1 2 2v3h3a2 2 0 0 1 0 4h-3v3a2 2 0 0 1-4 0v-3H7a2 2 0 0 1 0-4h3V4a2 2 0 0 1 2-2zm-6 9H5a2 2 0 0 0 0 4h1v3a2 2 0 0 0 4 0v-3h1a2 2 0 0 0 0-4h-1v-3a2 2 0 0 0-4 0v3z"/>',
+      conclusion: '<path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>',
+      source: '<path d="M14 2H6a2 2 0 0 0-2 2v16l8-3 8 3V8l-6-6zm4 16.5-6-2.25L6 18.5V4h6v4h6v10.5z"/>',
+      web: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm7.9 9H16.1a15.4 15.4 0 0 0-1.2-5.1A8 8 0 0 1 19.9 11zM12 4c.9 1.6 1.6 3.6 1.9 6H10.1c.3-2.4 1-4.4 1.9-6zM8.1 5.9A15.4 15.4 0 0 0 6.9 11H4.1a8 8 0 0 1 4-5.1zM4.1 13h2.8c.3 1.9.9 3.6 1.8 5.1A8 8 0 0 1 4.1 13zm7.9 7c-.9-1.6-1.6-3.6-1.9-6h3.8c-.3 2.4-1 4.4-1.9 6zm3.9-1.9c.9-1.5 1.5-3.2 1.8-5.1h2.8a8 8 0 0 1-4.6 5.1z"/>',
+      summary: '<path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/>',
+      target: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/>',
+      action: '<path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>',
+      evidence: '<path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 12h8v2H8v-2zm0 4h6v2H8v-2z"/>',
+      "trend-up": '<path d="M16 6l2.3 2.3-4.3 4.3-3-3L6 16.6 4.6 15l6.4-6.4 3 3 3.3-3.3L16 6z"/>',
+      "trend-down": '<path d="M16 18l-2.3-2.3 4.3-4.3 3 3 6.4-6.4L21.4 9l-6.4 6.4-3-3-3.3 3.3L16 18z"/>',
+      shield: '<path d="M12 2 4 5v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V5l-8-3zm0 2.2 6 2.25V11c0 4.2-2.9 8.2-6 9.55C8.9 19.2 6 15.2 6 11V6.45l6-2.25z"/>',
+      users: '<path d="M16 11a3 3 0 1 0-.001-6.001A3 3 0 0 0 16 11zM8 11a3 3 0 1 0-.001-6.001A3 3 0 0 0 8 11zm0 2c-2.7 0-8 1.35-8 4v3h16v-3c0-2.65-5.3-4-8-4zm8 0c-.7 0-1.45.08-2.2.23 2.3.84 3.7 2.03 3.7 3.77V20h6v-3c0-2.65-5.3-4-8-4z"/>',
+      search: '<path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 14 15.5l.3.3v.8l5 5 1.5-1.5-5-5.3zM10 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>',
+      scope: '<path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>',
+      method: '<path d="M19 3H5a2 2 0 0 0-2 2v14l4-4h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/>',
+      question: '<path d="M11 18h2v-2h-2v2zm1-16C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a3 3 0 0 0-3 3h2a1 1 0 1 1 1 1c-1 1-2 1.5-2 3h2c0-1 2-1.5 2-3a3 3 0 0 0-3-3z"/>',
+      alert: '<path d="M12 2 1 21h22L12 2zm0 4.8L19.5 19h-15L12 6.8zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>',
+      check: '<path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>',
+      list: '<path d="M4 10.5h16v2H4v-2zm0-4h16v2H4v-6zm0 8h16v2H4v-2z"/>',
+      chart: '<path d="M3 17V7h4v10H3zm7 0V3h4v14h-4zm7 0v-7h4v7h-4z"/>',
+      metric: '<path d="M4 19h16v2H4v-2zm3-4h2v4H7v-4zm4 0h2v4h-2v-4zm4 0h2v4h-2v-4zM7 11h2v4H7v-4zm4 0h2v4h-2v-4zm4 0h2v4h-2v-4zM7 7h2v4H7V7zm4 0h2v4h-2V7zm4 0h2v4h-2V7z"/>',
+      outlook: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4.2 2.4-.9 1.6L11 13V7h2z"/>',
+      insight: '<path d="M9 18h6v2H9v-2zm3-16a6 6 0 0 0-4 10.7V16h8v-3.3A6 6 0 0 0 12 2z"/>'
+    };
+
+    const ICON_KEYWORD_RULES = [
+      { re: /增长|增速|同比|上升|提升|扩张/, icon: "trend-up" },
+      { re: /下降|减少|下滑|回落|收缩/, icon: "trend-down" },
+      { re: /风险|安全|威胁|漏洞|攻击/, icon: "shield" },
+      { re: /用户|客户|人员|团队/, icon: "users" },
+      { re: /占比|份额|比例|分布/, icon: "chart-pie" },
+      { re: /市场|规模|收入|销售额|金额/, icon: "chart-bar" },
+      { re: /趋势|走势|预测|周期/, icon: "chart-line" },
+      { re: /方法|分析|研究|策略/, icon: "method" },
+      { re: /范围|区域|领域|场景/, icon: "scope" },
+      { re: /问题|如何|什么/, icon: "question" }
+    ];
+
+    const CHAPTER_ICONS = {
+      "chapter-summary": "summary",
+      "chapter-kpis": "kpi",
+      "chapter-overview": "overview",
+      "chapter-findings": "finding",
+      "chapter-sections": "section",
+      "chapter-mindmap": "mindmap",
+      "chapter-charts": "chart",
+      "chapter-conclusion": "conclusion"
+    };
+
+    const CHART_TYPE_ICONS = {
+      bar: "chart-bar", line: "chart-line", pie: "chart-pie", area: "chart-area",
+      table: "chart-table", radar: "chart-radar", gauge: "chart-gauge",
+      horizontal_bar: "chart-bar", scatter: "chart-line", funnel: "chart-bar",
+      donut: "chart-pie", stacked_bar: "chart-bar", heatmap: "chart-table"
+    };
+
+    function icon(name, cls) {
+      const path = ICONS[name] || ICONS["chart-default"];
+      return `<span class="dr-icon${cls ? " " + cls : ""}" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false">${path}</svg></span>`;
+    }
+
+    function pickIconByText(text, fallback) {
+      const s = String(text || "");
+      for (const rule of ICON_KEYWORD_RULES) {
+        if (rule.re.test(s)) return rule.icon;
+      }
+      return fallback || "metric";
+    }
+
+    function chartIcon(type) {
+      return CHART_TYPE_ICONS[String(type || "").toLowerCase()] || "chart-default";
+    }
+
+    function priorityLabel(level) {
+      const v = String(level || "P1").toUpperCase();
+      if (v === "P0" || v === "HIGH") return "P0";
+      if (v === "P2" || v === "LOW") return "P2";
+      return "P1";
+    }
+
+    function priorityClass(level) {
+      const v = String(level || "P1").toUpperCase();
+      if (v === "P0" || v === "HIGH") return "p0";
+      if (v === "P2" || v === "LOW") return "p2";
+      return "p1";
+    }
+
+    function dominantConfidence(findings) {
+      const order = { high: 3, medium: 2, low: 1 };
+      let best = "medium";
+      let score = 0;
+      (findings || []).forEach(f => {
+        const c = pillClass(f?.confidence);
+        const s = order[c] || 2;
+        if (s > score) { score = s; best = c; }
+      });
+      return best;
+    }
+
+    function renderExecutiveDashboard(kpis, findings, recommendations, counts, meta, overview) {
+      const primary = kpis[0];
+      const conf = dominantConfidence(findings);
+      const topFindings = findings.slice(0, 3).map(f => f.title || f.insight).filter(Boolean);
+      const topActions = recommendations.slice(0, 3).map(r => r.title || r.description).filter(Boolean);
+      const strip = [
+        { val: counts.findings, lbl: "发现" },
+        { val: counts.chapters, lbl: "章节" },
+        { val: counts.analysisSections, lbl: "分析主题" },
+        { val: counts.charts, lbl: "图表" },
+        { val: counts.kpis, lbl: "指标" },
+        { val: meta.web_search_enabled ? counts.sources : null, lbl: "来源" }
+      ].filter(x => x.val > 0);
+      const methodNote = overview?.method || "";
+
+      return `<div class="exec-dashboard dr-block reveal" id="chapter-dashboard">
+        <div class="snapshot-card">
+          <div class="snapshot-label">${icon("metric")} ${primary ? esc(primary.label || "核心指标") : "研究规模"}</div>
+          <div class="snapshot-value">${esc(primary ? primary.value : String(counts.findings || counts.sections || "—"))}${primary?.unit ? `<span class="snapshot-unit">${esc(primary.unit)}</span>` : ""}</div>
+          ${primary?.description ? `<div class="snapshot-desc">${esc(primary.description)}</div>` : `<div class="snapshot-desc">${counts.findings ? `${counts.findings} 项核心发现` : ""}${counts.charts ? ` · ${counts.charts} 张可视化图表` : ""}</div>`}
+          <span class="snapshot-badge ${pillClass(conf)}">${conf === "high" ? "高置信研究" : conf === "low" ? "探索性研究" : "标准研究"}</span>
+          ${strip.length ? `<div class="metric-strip">${strip.map(s => `<div class="metric-strip-item"><span class="ms-val">${s.val}</span><span class="ms-lbl">${esc(s.lbl)}</span></div>`).join("")}</div>` : ""}
+        </div>
+        <div class="insight-panels">
+          <div class="insight-panel">
+            <div class="insight-panel-head">${icon("finding")} Top Findings</div>
+            ${topFindings.length ? `<ul>${topFindings.map(t => `<li>${icon("check")}<span>${esc(t)}</span></li>`).join("")}</ul>` : `<div class="insight-panel-empty">暂无核心发现摘要</div>`}
+          </div>
+          <div class="insight-panel">
+            <div class="insight-panel-head">${icon("action")} Top Actions</div>
+            ${topActions.length ? `<ul>${topActions.map(t => `<li>${icon("target")}<span>${esc(t)}</span></li>`).join("")}</ul>` : `<div class="insight-panel-empty">暂无优先行动建议</div>`}
+          </div>
+          ${meta.web_search_enabled || methodNote ? `
+          <div class="insight-panel">
+            <div class="insight-panel-head">${icon("method")} Data & Method</div>
+            <ul>
+              ${meta.web_search_enabled ? `<li>${icon("web")}<span>Web Search 增强 · ${meta.cited_source_count ?? counts.sources ?? meta.source_count ?? 0} 条已引用来源${meta.web_search_retrieved_count && meta.web_search_retrieved_count > (meta.cited_source_count ?? counts.sources ?? 0) ? `（检索 ${meta.web_search_retrieved_count} 条）` : ""}</span></li>` : ""}
+              ${methodNote ? `<li>${icon("evidence")}<span>${esc(methodNote)}</span></li>` : ""}
+            </ul>
+          </div>` : ""}
+        </div>
+      </div>`;
+    }
+
+    function renderChapterHeader(num, title, desc, chapterId) {
+      const ic = CHAPTER_ICONS[chapterId] || pickIconByText(title, "section");
+      return `<div class="chapter-header">
+          <div class="chapter-header-icon">${icon(ic)}</div>
+          <div class="chapter-header-text">
+            <div class="chapter-num">${padChapter(num)}</div>
+            <h2 class="chapter-title">${esc(title)}</h2>
+            ${desc ? `<p class="chapter-desc">${esc(desc)}</p>` : ""}
+          </div>
+        </div>`;
+    }
+
+    function renderFindingRow(f, idx, sources) {
+      const sev = pillClass(f.confidence);
+      const srcRefs = renderInlineSourceRefs(f.used_source_ids, sources);
+      return `<article class="finding-row severity-${sev}">
+        <div class="finding-row-num">${idx + 1}</div>
+        <div class="finding-row-body">
+          <div class="finding-row-head">
+            <h3 class="finding-row-title">${esc(f.title || "")}</h3>
+            <span class="pill ${sev}">${esc(String(f.confidence || "medium").toUpperCase())}</span>
+          </div>
+          ${renderRichText(f.insight || "", sources)}
+          ${srcRefs}
+        </div>
+      </article>`;
+    }
+
+    function renderFindingCard(f, idx, sources) {
+      return renderFindingRow(f, idx, sources);
+    }
+
+    function renderRecommendationItem(r, idx, sources) {
+      const pc = priorityClass(r.priority);
+      const ic = pickIconByText(r.target || r.title || r.action, "action");
+      const target = r.target || r.title || "";
+      const action = r.action || r.description || "";
+      const rationale = r.rationale || "";
+      const risk = r.risk || "";
+      const srcRefs = renderInlineSourceRefs(r.used_source_ids, sources);
+      return `<div class="rec-item">
+        <div class="rec-side">
+          <span class="rec-num">${padChapter(idx + 1)}</span>
+          <span class="rec-priority ${pc}">${priorityLabel(r.priority)}</span>
+          <span class="rec-side-icon">${icon(ic)}</span>
+        </div>
+        <div class="rec-body">
+          <div class="rec-target">目标：${esc(target)}</div>
+          ${rationale ? `<div class="rec-rationale"><strong>依据：</strong>${esc(rationale)}</div>` : ""}
+          <div class="rec-action">行动：${esc(action)}</div>
+          ${risk ? `<div class="rec-risk"><strong>风险：</strong>${esc(risk)}</div>` : ""}
+          ${srcRefs}
+        </div>
+      </div>`;
+    }
+
+    function renderOverviewItem(label, value, iconKey) {
+      return `<div class="overview-item">
+        <div class="overview-icon">${icon(iconKey || pickIconByText(label, "overview"))}</div>
+        <div class="overview-body">
+          <strong>${esc(label)}</strong>
+          ${esc(value || "")}
+        </div>
+      </div>`;
+    }
+
+    function pillClass(level) {
+      const v = String(level || "medium").toLowerCase();
+      return v === "high" || v === "low" ? v : "medium";
+    }
+
+    function renderKpis(kpis, innerOnly) {
+      if (!kpis.length) return "";
+      const grid = `<div class="kpi-grid">${kpis.map((k, i) => {
+        const ic = pickIconByText(k.label || k.description, "kpi");
+        return `<div class="kpi-card">
+          <div class="kpi-icon-wrap">${icon(ic)}</div>
+          <div class="kpi-body">
+            <span class="kpi-index">${String(i + 1).padStart(2, "0")}</span>
+            <span class="kpi-value">${esc(k.value)}</span>
+            <span class="kpi-label">${esc(k.label)}</span>
+            ${k.description ? `<span class="kpi-desc">${esc(k.description)}</span>` : ""}
+          </div>
+        </div>`;
+      }).join("")}</div>`;
+      if (innerOnly) return grid;
+      return `<div class="kpi-section dr-block reveal"><div class="kpi-section-title">关键指标</div>${grid}</div>`;
+    }
+
+    function findingGridClass(count) {
+      if (count <= 1) return "grid-one";
+      if (count === 2) return "grid-two";
+      if (count === 3) return "grid-three";
+      return "grid-many";
+    }
+
+    function renderCoverMeta(meta, counts) {
+      const pills = [];
+      if (counts.findings) pills.push({ text: `${counts.findings} 项发现`, ic: "finding" });
+      if (counts.chapters) pills.push({ text: `${counts.chapters} 个章节`, ic: "section" });
+      else if (counts.analysisSections) pills.push({ text: `${counts.analysisSections} 个分析主题`, ic: "section" });
+      if (counts.charts) pills.push({ text: `${counts.charts} 张图表`, ic: "chart" });
+      if (counts.kpis) pills.push({ text: `${counts.kpis} 项指标`, ic: "kpi" });
+      if (meta.web_search_enabled) pills.push({ text: "Web 增强", ic: "web" });
+      else if (counts.sources) pills.push({ text: `${counts.sources} 个来源`, ic: "source" });
+      if (!pills.length && meta.visualization_type) pills.push({ text: meta.visualization_type, ic: "metric" });
+      return pills.map(p => `<span class="cover-pill">${icon(p.ic)} ${esc(p.text)}</span>`).join("");
+    }
+
+    function initReveal(root) {
+      const blocks = root.querySelectorAll(".reveal");
+      if (!blocks.length) return;
+      if (typeof IntersectionObserver === "undefined") {
+        blocks.forEach(el => el.classList.add("visible"));
+        return;
+      }
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.08, rootMargin: "0px 0px -40px 0px" });
+      blocks.forEach(el => io.observe(el));
+    }
+
+    function buildChartMap(charts) {
+      const map = new Map();
+      (charts || []).forEach((c, i) => {
+        const id = String(c.id ?? `7.${i + 1}`);
+        map.set(id, c);
+      });
+      return map;
+    }
+
+    function collectUsedChartIds(sections) {
+      const used = new Set();
+      (sections || []).forEach(s => {
+        (s.visual_refs || []).forEach(ref => used.add(String(ref)));
+      });
+      return used;
+    }
+
+    const SECTION_LAYERS = [
+      { key: "observation", label: "核心观察" },
+      { key: "interpretation", label: "原因解释" },
+      { key: "mechanism", label: "驱动机制" },
+      { key: "implication", label: "影响判断" },
+      { key: "uncertainty", label: "不确定性" },
+      { key: "outlook", label: "未来趋势" }
+    ];
+
+    function resolveSourceLabels(sourceIds, sources) {
+      const ids = Array.isArray(sourceIds) ? sourceIds.map(String).filter(Boolean) : [];
+      if (!ids.length) return [];
+      const map = new Map((sources || []).map(s => [String(s.id), s]));
+      return ids.map(id => {
+        const src = map.get(id);
+        const label = citeDisplayNo(id, sources);
+        return src ? `[${label}] ${src.title || "未命名来源"}` : `[${label}]`;
+      });
+    }
+
+    function renderInlineSourceRefs(sourceIds, sources) {
+      const labels = resolveSourceLabels(sourceIds, sources);
+      if (!labels.length) return "";
+      return `<details class="inline-source-refs">
+        <summary>${icon("source")} 参考来源（${labels.length}）</summary>
+        <ul>${labels.map(l => `<li>${esc(l)}</li>`).join("")}</ul>
+      </details>`;
+    }
+
+    function hasSectionAnalysis(s) {
+      return SECTION_LAYERS.some(l => String(s[l.key] || "").trim()) || String(s.insight || "").trim();
+    }
+
+    function renderSectionAnalysis(s, sources) {
+      const layers = SECTION_LAYERS.filter(l => String(s[l.key] || "").trim());
+      let html = "";
+      if (layers.length) {
+        html += layers.map(l => `
+          <div class="section-field section-layer">
+            <span class="field-label">${esc(l.label)}</span>
+            <div class="section-layer-body">${renderRichText(s[l.key], sources)}</div>
+          </div>`).join("");
+      } else if (String(s.content || "").trim()) {
+        html += `<div class="section-field"><span class="field-label">${icon("section")} 深度分析</span><div class="section-content">${renderRichText(s.content, sources)}</div></div>`;
+      }
+      if (String(s.insight || "").trim()) {
+        html += `<div class="section-insight-box"><span class="field-label">${icon("finding")} Research Insight</span><div class="section-insight-text">${renderRichText(s.insight, sources)}</div></div>`;
+      }
+      return html;
+    }
+
+    function renderCrossSectionInsights(items) {
+      const list = Array.isArray(items) ? items.filter(Boolean) : [];
+      if (!list.length) return "";
+      return `<div class="cross-section-box">
+        <span class="field-label">${icon("mindmap")} 跨章节关联洞察</span>
+        <ul>${list.map(t => `<li>${esc(String(t))}</li>`).join("")}</ul>
+      </div>`;
+    }
+
+    function renderSynthesisBlock(label, text, iconKey, sources) {
+      const body = String(text || "").trim();
+      if (!body) return "";
+      return `<div class="synthesis-block">
+        <div class="synthesis-block-title">${icon(iconKey || "finding")} ${esc(label)}</div>
+        <div class="synthesis-block-body">${renderRichText(body, sources)}</div>
+      </div>`;
+    }
+
+    function renderConclusionSynthesis(conclusion, sources) {
+      if (!conclusion || typeof conclusion !== "object") return "";
+      const blocks = [
+        renderSynthesisBlock("综合判断", conclusion.problem_analysis, "finding", sources),
+        renderSynthesisBlock("关键驱动", conclusion.root_causes, "section", sources),
+        renderSynthesisBlock("战略启示", conclusion.strategic_implications, "insight", sources),
+      ].filter(Boolean);
+      if (!blocks.length) return "";
+      return `<div class="conclusion-synthesis">${blocks.join("")}</div>`;
+    }
+
+    function renderOutlookTrends(trends) {
+      const list = Array.isArray(trends) ? trends.filter(t => t && (t.title || t.description)) : [];
+      if (!list.length) return "";
+      return `<div class="outlook-trends-section">
+        <div class="outlook-trends-title">${icon("outlook")} 展望要点</div>
+        <div class="outlook-trends-grid">${list.map((t, i) => `
+          <div class="trend-card">
+            <div class="trend-num">${padChapter(i + 1)}</div>
+            <div class="trend-title">${esc(t.title || "")}</div>
+            ${t.description ? `<div class="trend-desc">${esc(t.description)}</div>` : ""}
+          </div>`).join("")}</div>
+      </div>`;
+    }
+
+    function renderConclusionOutlook(text, sources) {
+      const body = String(text || "").trim();
+      if (!body) return "";
+      return `<div class="conclusion-outlook-box">
+        <div class="conclusion-outlook-label">${icon("conclusion")} 展望收束</div>
+        <div class="conclusion-text">${renderRichText(body, sources)}</div>
+      </div>`;
+    }
+
+    function renderConclusionChapter(finalNum, data, crossSectionInsights, recommendations, sources) {
+      const conclusion = data.conclusion || {};
+      const outlookTrends = Array.isArray(data.outlook_trends) ? data.outlook_trends : [];
+      const chapterDesc = conclusion.headline || "Conclusion & Recommendations";
+      const synthesis = renderConclusionSynthesis(conclusion, sources);
+      const trends = renderOutlookTrends(outlookTrends);
+      const outlook = renderConclusionOutlook(conclusion.text, sources);
+      const legacyOnly = !synthesis && !trends && !outlook && conclusion.text;
+      const legacyBox = legacyOnly ? `<div class="conclusion-box">
+          <div class="conclusion-icon">${icon("conclusion")}</div>
+          <div class="conclusion-text">${renderRichText(conclusion.text, sources)}</div>
+        </div>` : "";
+      const recSection = recommendations.length
+        ? `<div class="rec-section-title">${icon("action")} 行动建议</div>
+           <div class="rec-list">${recommendations.map((r, ri) => renderRecommendationItem(r, ri, sources)).join("")}</div>`
+        : `<div class="empty-state">${icon("alert")} 暂无行动建议</div>`;
+      const disclaimer = conclusion.disclaimer
+        ? `<div class="conclusion-disclaimer"><strong>说明：</strong>${esc(conclusion.disclaimer)}</div>`
+        : "";
+      return `<section class="dr-block dr-chapter conclusion-recommendations reveal" id="chapter-conclusion">
+        ${renderChapterHeader(finalNum, "总结与建议", chapterDesc, "chapter-conclusion")}
+        ${renderCrossSectionInsights(crossSectionInsights)}
+        ${synthesis}
+        ${trends}
+        ${outlook}
+        ${legacyBox}
+        ${recSection}
+        ${disclaimer}
+      </section>`;
+    }
+
+    function createChartCardHtml(chart, sources) {
+      const isTable = isTableChart(chart);
+      const cardClass = isTable ? "chart-card chart-table" : "chart-card chart-echarts";
+      const ic = chartIcon(chart.type);
+      const title = linkifySourceMarkers(stripSourceMarkers(chart.title || chart.type), sources);
+      const description = linkifySourceMarkers(stripSourceMarkers(chart.description || ""), sources);
+      const chartInsight = linkifySourceMarkers(stripSourceMarkers(chart.chart_insight || ""), sources);
+      const interpretation = linkifySourceMarkers(stripSourceMarkers(chart.interpretation || ""), sources);
+      const dataNotes = linkifySourceMarkers(stripSourceMarkers(chart.data_notes || ""), sources);
+      const confLabels = { verified: "数据已核实", derived: "推导数据", unverified: "待核实" };
+      const conf = chart.data_confidence;
+      const confHtml = conf
+        ? `<span class="chart-confidence conf-${esc(String(conf))}">${esc(confLabels[conf] || conf)}${conf === "unverified" ? " · 请谨慎解读" : ""}</span>`
+        : "";
+      const srcRefs = renderInlineSourceRefs(chart.data_source_refs, sources);
+      return `
+        <div class="${cardClass}" data-chart-id="${esc(String(chart.id))}">
+          <div class="chart-card-head">
+            <div class="chart-type-icon">${icon(ic)}</div>
+            <div class="chart-card-head-text">
+              <h3>${title}</h3>
+              ${description ? `<p class="chart-desc">${description}</p>` : ""}
+              ${confHtml}
+            </div>
+          </div>
+          <div class="chart-body">${isTable ? renderTable(chart) : `<div class="chart-box"></div>`}</div>
+          ${chartInsight ? `<div class="chart-insight"><strong>图表洞察</strong>${chartInsight}</div>` : ""}
+          ${interpretation ? `<div class="chart-insight chart-interpretation"><strong>含义解读</strong>${interpretation}</div>` : ""}
+          ${dataNotes ? `<div class="chart-data-notes"><strong>数据说明</strong>${dataNotes}</div>` : ""}
+          ${srcRefs}
+        </div>`;
+    }
+
+    function reportTitle(data) {
+      const t = data.title;
+      if (typeof t === "string") return t;
+      return t?.text || "";
+    }
+
+    function mountChartsInContainer(container, charts, prefix, sources) {
+      const valid = filterRenderableCharts(charts);
+      if (!container || !valid.length) return;
+      const gridClass = valid.length === 1 ? "charts-grid cols-1" : "charts-grid";
+      container.innerHTML = `<div class="${gridClass}">${valid.map(c => createChartCardHtml(c, sources)).join("")}</div>`;
+      const cards = container.querySelectorAll(".chart-card");
+      valid.forEach((c, i) => {
+        if (isTableChart(c)) return;
+        const box = cards[i]?.querySelector(".chart-box");
+        if (box) {
+          box.id = `${prefix}-chart-${i}-${Date.now()}`;
+          renderChart(box, c);
+        }
+      });
+    }
+
+    function countMindmapNodes(mindmap) {
+      const nodes = mindmap?.nodes || mindmap?.children || [];
+      let total = 0;
+      function walk(items) {
+        (items || []).forEach(n => {
+          if (!n || typeof n !== "object") return;
+          total += 1;
+          walk(n.children || n.nodes);
+        });
+      }
+      walk(nodes);
+      return total;
+    }
+
+    function mindmapWrapClass(mindmap) {
+      const n = countMindmapNodes(mindmap);
+      return n <= 8 ? "mindmap-wrap mindmap-tree mindmap-compact" : "mindmap-wrap mindmap-tree mindmap-dense";
+    }
+
+    function hasMindmapContent(mindmap) {
+      if (!mindmap || typeof mindmap !== "object") return false;
+      const nodes = mindmap.nodes || mindmap.children || [];
+      return Array.isArray(nodes) && nodes.length > 0;
+    }
+
+    function renderBlockTitle(text) {
+      return `<div class="dr-block-title"><div class="indicator"></div><span>${text}</span></div>`;
+    }
+
+    function padChapter(n) { return String(n).padStart(2, "0"); }
+
+    function padSubChapter(base, sub) {
+      return `${padChapter(base)}.${String(sub).padStart(2, "0")}`;
+    }
+
+    function renderReportNav(anchors) {
+      if (!anchors.length) return "";
+      return `<nav class="dr-nav reveal visible" aria-label="报告导航">
+          <div class="dr-nav-inner">
+            <span class="dr-nav-brand">${icon("summary")} Deep Research</span>
+            ${anchors.map(a => `<a class="dr-nav-item" href="#${a.id}">${icon(CHAPTER_ICONS[a.id] || "section")}${esc(a.label)}</a>`).join("")}
+          </div>
+        </nav>`;
+    }
+
+    function renderQualityBanner(meta) {
+      const messages = Array.isArray(meta.quality_banner) ? meta.quality_banner.filter(Boolean) : [];
+      if (!messages.length) return "";
+      return `<div class="quality-banner reveal visible">${icon("alert")}<div><ul>${messages.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div></div>`;
+    }
+
+    function webSearchWarningLabel(code) {
+      const base = String(code || "").split(":", 1)[0];
+      const labels = {
+        web_search_disabled: "服务端未开启 Web Search（请在 .env 设置 WEB_SEARCH_ENABLED=true）",
+        web_search_request_failed: "Web Search 请求失败",
+        web_search_empty: "Web Search 无有效结果",
+        web_search_no_sources: "仅有搜索总结、无可追溯来源",
+        web_search_provider_none: "未配置 Web Search 提供方",
+        web_search_url_missing: "未配置 WEB_SEARCH_URL",
+      };
+      return labels[base] || base;
+    }
+
+    function renderWebSearchBanner(meta, warnings) {
+      if (!meta.web_search_requested) return "";
+      if (meta.web_search_enabled) {
+        const provider = meta.web_search_provider === "bocha_internal" ? "Bocha" : (meta.web_search_query || meta.web_search_provider || "");
+        return `<div class="web-status ok reveal visible">${icon("web")}<span>Web Search 已生效：${meta.source_count || 0} 条可追溯来源${provider ? ` · ${esc(String(provider).includes("http") ? "Bocha 内网检索" : provider)}` : ""}</span></div>`;
+      }
+      if (meta.web_search_answer_used && meta.web_answer_preview) {
+        return `<div class="web-status warn reveal visible">${icon("web")}<span>Web Search 仅返回搜索总结（无可追溯来源条目），已作低优先级参考。</span></div>`;
+      }
+      const hint = (warnings || []).find(w => String(w).startsWith("web_search_"));
+      const hintText = hint ? webSearchWarningLabel(hint) : "";
+      return `<div class="web-status warn reveal visible">${icon("alert")}<span>Web Search 未生效${hintText ? `：${esc(hintText)}` : ""}，本报告基于用户原文生成。</span></div>`;
+    }
+
+    function renderEvidence(items) {
+      const list = Array.isArray(items) ? items.filter(Boolean) : [];
+      if (!list.length) return "";
+      return `<div class="evidence-block"><div class="evidence-label">${icon("evidence")} 引用依据</div>${list.map(item =>
+        `<blockquote class="evidence-quote">${esc(String(item))}</blockquote>`
+      ).join("")}</div>`;
+    }
+
+    function renderReferencesPanel(sources, meta) {
+      const list = Array.isArray(sources) ? sources.filter(s => s && typeof s === "object") : [];
+      if (!list.length) return "";
+      const providerLabel = meta.web_search_provider === "bocha_internal" ? "Bocha 内网检索" : (meta.web_search_provider || "Web Search");
+      const retrieved = meta.web_search_retrieved_count;
+      const countLabel = retrieved && retrieved > list.length
+        ? `${list.length} 条已引用（检索 ${retrieved} 条）`
+        : `${list.length} 条`;
+      return `<details class="refs-panel dr-block reveal" id="chapter-references">
+          <summary>
+            ${icon("source")}<span>参考来源</span>
+            <span class="refs-count">${countLabel}</span>
+            <span class="refs-provider">${esc(providerLabel)}</span>
+          </summary>
+          <div class="refs-panel-body">
+            <div class="sources-list">${list.map(s => {
+              const label = s.cite_no != null ? String(s.cite_no) : citeDisplayNo(s.id, list);
+              const anchor = `source-${label}`;
+              return `
+              <div class="source-item" id="${esc(anchor)}">
+                <span class="source-item-icon">${icon("source")}</span>
+                <div class="source-item-body">
+                  <strong><span class="source-id">[${esc(label)}]</span> ${esc(s.title || "未命名来源")}</strong>
+                  ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.url)}</a>` : ""}
+                  ${s.snippet ? `<div class="source-snippet">${esc(s.snippet)}</div>` : ""}
+                </div>
+              </div>`;
+            }).join("")}</div>
+          </div>
+        </details>`;
+    }
+
+    function renderDebugPanel(meta, counts, warnings) {
+      const wc = meta.warning_count ?? warnings.length;
+      const wsReq = meta.web_search_requested ? "是" : "否";
+      const wsEn = meta.web_search_enabled ? "是" : "否";
+      return `<details class="debug-panel">
+          <summary>开发调试信息（不影响阅读）</summary>
+          <div class="debug-stats">
+            <span class="debug-stat">sections: ${counts.sections}</span>
+            <span class="debug-stat">charts: ${counts.charts}</span>
+            <span class="debug-stat">kpis: ${counts.kpis}</span>
+            <span class="debug-stat">findings: ${counts.findings}</span>
+            <span class="debug-stat">sources: ${meta.source_count ?? counts.sources ?? 0}</span>
+            <span class="debug-stat">web_search req: ${wsReq}</span>
+            <span class="debug-stat">web_search on: ${wsEn}</span>
+            <span class="debug-stat">warnings: ${wc}</span>
+          </div>
+          ${warnings.length ? `<details class="debug-warnings"><summary>warnings 明细 (${warnings.length})</summary><div>${warnings.map(w => `<span class="warning-tag">${esc(w)}</span>`).join("")}</div></details>` : ""}
+          <pre>${esc(JSON.stringify(meta, null, 2))}</pre>
+        </details>`;
+    }
+
+    function renderSectionBlock(s, si, chartMap, sources) {
+      const sectionCharts = filterRenderableCharts(
+        (s.visual_refs || []).map(ref => chartMap.get(String(ref))).filter(Boolean)
+      );
+      const srcRefs = renderInlineSourceRefs(s.used_source_ids, sources);
+      return `
+        <article class="analysis-card dr-chapter" id="chapter-section-${si}">
+          <div class="analysis-card-header">
+            <span class="section-index">${si + 1}</span>
+            <h4>${esc(s.title || "")}</h4>
+          </div>
+          ${s.summary ? `<div class="section-field"><span class="field-label">${icon("summary")} 本节摘要</span><div class="section-summary">${renderRichText(s.summary, sources)}</div></div>` : ""}
+          ${renderSectionAnalysis(s, sources)}
+          ${sectionCharts.length ? `<div class="section-charts"><div class="section-charts-header">${icon("chart")} 支撑图表</div><div id="section-charts-${si}"></div></div>` : ""}
+          ${srcRefs}
+        </article>`;
+    }
+
+    let currentReportData = null;
+
+    function renderReport(data) {
+      chartManager.disposeAll();
+      currentReportData = data;
+      const toolbar = document.getElementById("report-toolbar");
+      if (toolbar) toolbar.hidden = false;
+      const root = document.getElementById("report-root");
+      const overview = data.research_overview || {};
+      const kpis = Array.isArray(data.kpis) ? data.kpis : [];
+      const findings = Array.isArray(data.key_findings) ? data.key_findings : [];
+      const sections = Array.isArray(data.sections) ? data.sections : [];
+      const recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
+      const crossSectionInsights = Array.isArray(data.cross_section_insights) ? data.cross_section_insights : [];
+      const sources = getDisplaySources(data);
+      const allSources = Array.isArray(data.sources) ? data.sources : [];
+      const charts = filterRenderableCharts(Array.isArray(data.charts) ? data.charts : []);
+      const chartMap = buildChartMap(charts);
+      const usedChartIds = collectUsedChartIds(sections);
+      const orphanCharts = charts.filter(c => !usedChartIds.has(String(c.id)));
+      const meta = data.metadata || {};
+      const warnings = Array.isArray(meta.warnings) ? meta.warnings : [];
+      const debugCounts = {
+        sections: meta.section_count ?? sections.length,
+        charts: meta.chart_count ?? charts.length,
+        kpis: meta.kpi_count ?? kpis.length,
+        findings: meta.finding_count ?? findings.length
+      };
+      const mmClass = mindmapWrapClass(data.mindmap);
+
+      let chapterNo = 1;
+      const nav = [];
+      const nextChapter = (id, label) => { nav.push({ id, label }); return chapterNo++; };
+
+      const execNum = data.summary?.text ? nextChapter("chapter-summary", "执行摘要") : 0;
+      const kpiNum = kpis.length ? nextChapter("chapter-kpis", "关键指标") : 0;
+      const overviewNum = nextChapter("chapter-overview", "研究概览");
+      const findingsNum = findings.length ? nextChapter("chapter-findings", "核心发现") : 0;
+      const sectionsNum = sections.length ? nextChapter("chapter-sections", "深度分析") : 0;
+      const mindmapNum = hasMindmapContent(data.mindmap) ? nextChapter("chapter-mindmap", "知识结构") : 0;
+      const chartsNum = orphanCharts.length ? nextChapter("chapter-charts", "补充图表") : 0;
+      const finalNum = nextChapter("chapter-conclusion", "总结与建议");
+      const chapterCount = nav.length;
+      const reportCounts = {
+        findings: findings.length,
+        chapters: chapterCount,
+        analysisSections: sections.length,
+        charts: charts.length,
+        kpis: kpis.length,
+        sources: sources.length,
+        sourcesRetrieved: meta.web_search_retrieved_count ?? allSources.length
+      };
+
+      root.innerHTML = `<div class="dr-report">
+        <header class="dr-cover reveal">
+          <div class="dr-cover-accent"></div>
+          <p class="dr-cover-subtitle">Deep Research Report</p>
+          <h1>${esc(reportTitle(data))}</h1>
+          ${overview.scope ? `<p class="dr-cover-lead">${esc(overview.scope)}</p>` : ""}
+          <div class="dr-cover-meta">${renderCoverMeta(meta, reportCounts)}</div>
+        </header>
+        ${renderReportNav(nav)}
+        <div class="dr-report-body">
+        ${renderExecutiveDashboard(kpis, findings, recommendations, reportCounts, meta, overview)}
+        ${data.summary?.text ? `
+        <section class="dr-block dr-chapter dr-summary reveal" id="chapter-summary">
+          ${renderChapterHeader(execNum, "执行摘要", "Executive Summary", "chapter-summary")}
+          <p><span class="dr-summary-icon">${icon("summary")}</span><span class="dr-summary-text">${esc(data.summary.text)}</span></p>
+        </section>` : ""}
+        ${kpis.length ? `
+        <section class="dr-block dr-chapter reveal" id="chapter-kpis">
+          ${renderChapterHeader(kpiNum, "关键指标", "Key Metrics", "chapter-kpis")}
+          ${renderKpis(kpis, true)}
+        </section>` : ""}
+        <section class="dr-block dr-chapter reveal" id="chapter-overview">
+          ${renderChapterHeader(overviewNum, "研究概览", overview.question || "", "chapter-overview")}
+          <div class="overview-grid">
+            ${renderOverviewItem("研究问题", overview.question, "question")}
+            ${renderOverviewItem("范围边界", overview.scope, "scope")}
+            ${renderOverviewItem("分析方法", overview.method, "method")}
+          </div>
+        </section>
+        ${findings.length ? `
+        <section class="dr-block dr-chapter reveal" id="chapter-findings">
+          ${renderChapterHeader(findingsNum, "核心发现", "Key Findings", "chapter-findings")}
+          <div class="finding-list">${findings.map((f, fi) => renderFindingRow(f, fi, sources)).join("")}
+          </div>
+        </section>` : ""}
+        ${sections.length ? `
+        <section class="dr-block dr-chapter reveal" id="chapter-sections">
+          ${renderChapterHeader(sectionsNum, "深度分析", "分主题展开研究论证与数据支撑", "chapter-sections")}
+          ${sections.map((s, si) => renderSectionBlock(s, si, chartMap, sources)).join("")}
+        </section>` : ""}
+        ${hasMindmapContent(data.mindmap) ? `
+        <section class="dr-block dr-chapter reveal" id="chapter-mindmap">
+          ${renderChapterHeader(mindmapNum, "知识结构", data.mindmap?.title || "", "chapter-mindmap")}
+          <div class="mindmap-section-head">${icon("mindmap")} 研究主题知识结构图</div>
+          <div id="report-mindmap" class="${mmClass}"></div>
+        </section>` : ""}
+        ${orphanCharts.length ? `
+        <section class="dr-block dr-chapter reveal" id="chapter-charts">
+          ${renderChapterHeader(chartsNum, "补充图表", "未归入具体章节的可视化数据", "chapter-charts")}
+          <div id="orphan-charts"></div>
+        </section>` : ""}
+        ${renderConclusionChapter(finalNum, data, crossSectionInsights, recommendations, sources)}
+        ${renderReferencesPanel(sources, meta)}
+        </div>
+        <footer class="dr-footer">Deep Research · ${esc(meta.visualization_type || "deep_research_webpage")}${meta.web_search_enabled ? " · Web 增强" : ""}</footer>
+        ${renderDebugPanel(meta, debugCounts, warnings)}
+      </div>`;
+
+      if (hasMindmapContent(data.mindmap)) {
+        renderMindmapTree("report-mindmap", data.mindmap || {});
+      }
+      sections.forEach((s, si) => {
+        const sectionCharts = filterRenderableCharts(
+          (s.visual_refs || []).map(ref => chartMap.get(String(ref))).filter(Boolean)
+        );
+        if (sectionCharts.length) {
+          mountChartsInContainer(document.getElementById(`section-charts-${si}`), sectionCharts, `sec-${si}`, sources);
+        }
+      });
+      if (orphanCharts.length) {
+        mountChartsInContainer(document.getElementById("orphan-charts"), orphanCharts, "orphan", sources);
+      }
+      initReveal(root);
+      requestAnimationFrame(() => chartManager.resizeAll());
+    }
+
+    function showJson(id, obj) {
+      document.getElementById(id).textContent = JSON.stringify(obj, null, 2);
+    }
+
+    function setStatus(msg, type) {
+      const el = document.getElementById("api-status");
+      el.textContent = msg;
+      el.className = "status show " + (type || "info");
+    }
+
+    async function callApi(kind) {
+      const text = document.getElementById("api-text").value.trim();
+      if (!text) { setStatus("请输入文本", "error"); return; }
+      const url = `/visualization/${kind}`;
+      const resultEl = document.getElementById("api-result");
+      resultEl.textContent = "";
+      const enableWebSearch = kind === "webpage" && document.getElementById("web-search-enabled").checked;
+      setStatus(enableWebSearch ? "正在生成报告（含 Web Search 检索）…" : `正在调用 ${url} …`, "info");
+      try {
+        const payload = { text };
+        if (kind === "webpage") {
+          payload.enable_web_search = enableWebSearch;
+          if (enableWebSearch) {
+            const query = document.getElementById("web-search-query").value.trim();
+            const count = Number(document.getElementById("web-search-count").value || 3);
+            payload.web_search_query = query || null;
+            payload.web_search_count = Number.isFinite(count) ? count : 3;
+            payload.web_search_answer = document.getElementById("web-search-answer").checked;
+            setStatus("Web Search 检索完成，正在调用 LLM 生成报告…", "info");
+          }
+        }
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const body = await res.json();
+        if (!res.ok || body.code !== 200) throw new Error(body.detail || body.msg || "请求失败");
+        const data = body.data;
+        resultEl.textContent = JSON.stringify(body, null, 2);
+        setStatus("调用成功", "ok");
+        if (kind === "mindmap") { renderMindmapTree("mindmap-standalone", data); showJson("json-mindmap", data); document.querySelector('[data-tab="mindmap"]').click(); }
+        if (kind === "mermaid") { await renderMermaid(data.mermaid || ""); showJson("json-mermaid", data); document.querySelector('[data-tab="mermaid"]').click(); }
+        if (kind === "webpage") {
+          document.querySelector('[data-tab="report"]').click();
+          renderReport(data);
+        }
+      } catch (e) {
+        resultEl.textContent = "";
+        setStatus("调用失败: " + e.message, "error");
+      }
+    }
+
+    function loadSamples() {
+      renderMindmapTree("mindmap-standalone", SAMPLES.mindmap);
+      showJson("json-mindmap", SAMPLES.mindmap);
+      renderMermaid(SAMPLES.mermaid.mermaid);
+      showJson("json-mermaid", SAMPLES.mermaid);
+      document.querySelector('[data-tab="report"]').click();
+      renderReport(SAMPLES.webpage);
+    }
+
+    document.querySelectorAll(".tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+        if (btn.dataset.tab === "report") {
+          requestAnimationFrame(() => chartManager.resizeAll());
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-api]").forEach(btn => btn.addEventListener("click", () => callApi(btn.dataset.api)));
+    document.getElementById("btn-reset").addEventListener("click", () => { loadSamples(); setStatus("已恢复示例数据", "ok"); });
+
+    document.querySelectorAll("[data-text-sample]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.textSample;
+        if (TEXT_SAMPLES[key]) {
+          document.getElementById("api-text").value = TEXT_SAMPLES[key];
+          setStatus(`已填入${btn.textContent}`, "ok");
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-preview-report]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.previewReport;
+        const report = REPORT_SAMPLES[key];
+        if (!report) return;
+        if (TEXT_SAMPLES[key]) document.getElementById("api-text").value = TEXT_SAMPLES[key];
+        document.querySelector('[data-tab="report"]').click();
+        renderReport(report);
+        setStatus(`已预览：${btn.textContent.replace("预览·", "")}`, "ok");
+      });
+    });
+
+    function exportReportToPrint() {
+      if (!currentReportData) { setStatus("请先生成或预览报告", "error"); return; }
+      const root = document.getElementById("report-root");
+      const toggled = root ? Array.from(root.querySelectorAll("details:not([open])")) : [];
+      toggled.forEach(d => d.setAttribute("open", ""));
+      requestAnimationFrame(() => chartManager.resizeAll());
+      const restore = () => { toggled.forEach(d => d.removeAttribute("open")); window.removeEventListener("afterprint", restore); };
+      window.addEventListener("afterprint", restore);
+      setTimeout(() => window.print(), 120);
+    }
+
+    function mdEscape(value) { return String(value ?? "").replace(/\r?\n+/g, " ").trim(); }
+
+    function buildReportMarkdown(data) {
+      const meta = data.metadata || {};
+      const lines = [];
+      const title = (data.title && (data.title.text || data.title)) || "Deep Research 报告";
+      lines.push(`# ${mdEscape(title)}`, "");
+      const overview = data.research_overview || {};
+      if (overview.question) lines.push(`> 研究问题：${mdEscape(overview.question)}`, "");
+      if (data.summary && data.summary.text) lines.push(`## 执行摘要`, "", mdEscape(data.summary.text), "");
+      const kpis = Array.isArray(data.kpis) ? data.kpis : [];
+      if (kpis.length) {
+        lines.push(`## 关键指标`, "");
+        kpis.forEach(k => lines.push(`- **${mdEscape(k.label)}**：${mdEscape(k.value)}${k.description ? ` — ${mdEscape(k.description)}` : ""}`));
+        lines.push("");
+      }
+      const findings = Array.isArray(data.key_findings) ? data.key_findings : [];
+      if (findings.length) {
+        lines.push(`## 核心发现`, "");
+        findings.forEach((f, i) => lines.push(`${i + 1}. **${mdEscape(f.title)}** — ${mdEscape(f.insight)}`));
+        lines.push("");
+      }
+      const sections = Array.isArray(data.sections) ? data.sections : [];
+      if (sections.length) {
+        lines.push(`## 深度分析`, "");
+        const layerLabels = { observation: "现象", interpretation: "归因", mechanism: "机制", implication: "影响", uncertainty: "不确定性", outlook: "展望", insight: "研究洞察" };
+        sections.forEach((s, i) => {
+          lines.push(`### ${i + 1}. ${mdEscape(s.title)}`, "");
+          if (s.summary) lines.push(`*${mdEscape(s.summary)}*`, "");
+          Object.keys(layerLabels).forEach(k => { if (String(s[k] || "").trim()) lines.push(`- **${layerLabels[k]}**：${mdEscape(s[k])}`); });
+          if (!Object.keys(layerLabels).some(k => String(s[k] || "").trim()) && s.content) lines.push(mdEscape(s.content));
+          lines.push("");
+        });
+      }
+      const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+      if (recs.length) {
+        lines.push(`## 行动建议`, "");
+        recs.forEach(r => lines.push(`- **[${mdEscape(r.priority || "")}] ${mdEscape(r.target || r.title)}**：${mdEscape(r.action || r.description)}${r.rationale ? `（依据：${mdEscape(r.rationale)}）` : ""}`));
+        lines.push("");
+      }
+      const conclusion = data.conclusion;
+      if (conclusion && (conclusion.text || conclusion.problem_analysis)) {
+        lines.push(`## 总结`, "");
+        ["problem_analysis", "root_causes", "strategic_implications", "text"].forEach(k => { if (String(conclusion[k] || "").trim()) lines.push(mdEscape(conclusion[k]), ""); });
+      }
+      const sources = getDisplaySources(data);
+      if (sources.length) {
+        lines.push(`## 参考来源`, "");
+        sources.forEach(s => {
+          const label = s.cite_no != null ? String(s.cite_no) : citeDisplayNo(s.id, sources);
+          lines.push(`- [${label}] ${mdEscape(s.title)}${s.url ? ` — ${mdEscape(s.url)}` : ""}`);
+        });
+        if (meta.web_search_retrieved_count && meta.web_search_retrieved_count > sources.length) {
+          lines.push("", `> 共检索 ${meta.web_search_retrieved_count} 条，报告实际引用 ${sources.length} 条。`);
+        }
+        lines.push("");
+      }
+      return lines.join("\n");
+    }
+
+    function exportReportToMarkdown() {
+      if (!currentReportData) { setStatus("请先生成或预览报告", "error"); return; }
+      const md = buildReportMarkdown(currentReportData);
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const title = (currentReportData.title && (currentReportData.title.text || currentReportData.title)) || "deep-research";
+      a.href = url;
+      a.download = `${String(title).slice(0, 40).replace(/[\\/:*?"<>|\s]+/g, "_")}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus("已导出 Markdown", "ok");
+    }
+
+    document.getElementById("btn-export-print").addEventListener("click", exportReportToPrint);
+    document.getElementById("btn-export-md").addEventListener("click", exportReportToMarkdown);
+
+    loadSamples();
+
+    (async function autoRenderLatest() {
+      if (new URLSearchParams(location.search).get("render") !== "latest") return;
+      try {
+        const res = await fetch("/visualization/last");
+        const body = await res.json();
+        if (!res.ok || body.code !== 200) throw new Error(body.detail || body.msg || "加载失败");
+        document.querySelector('[data-tab="report"]').click();
+        renderReport(body.data);
+        setStatus("已加载最近一次生成的 Deep Research 报告", "ok");
+        document.getElementById("api-result").textContent = JSON.stringify(body, null, 2);
+      } catch (e) {
+        setStatus("加载最近报告失败: " + e.message, "error");
+      }
+    })();
+  </script>
+</body>
+</html>

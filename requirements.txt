@@ -1,0 +1,23 @@
+fastapi
+uvicorn
+sse_starlette
+llama-index==0.12.41
+openai
+docx2txt
+pymilvus
+llama-index-vector-stores-milvus
+llama-index-retrievers-bm25
+tornado
+openpyxl
+pydantic
+pydantic-settings
+python-dotenv
+asyncpg
+apscheduler
+xlrd
+requests
+nltk
+sqlalchemy
+llama-index-readers-database
+# llama-index-embeddings-huggingface
+psycopg2-binary
