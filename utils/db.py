@@ -4,6 +4,7 @@ PostgreSQL 数据库连接管理模块
 提供数据库连接池和基本的数据库操作
 """
 import time
+from pathlib import Path
 import asyncpg
 from typing import Optional, Dict, Any, List
 from configs.config import settings
@@ -160,6 +161,12 @@ CREATE INDEX IF NOT EXISTS idx_kb_metadata_tenant_id ON rag.kb_metadata(tenant_i
 """
 
 
+async def apply_control_plane_migration() -> None:
+    """执行控制面迁移（tenants / principals / api_keys / knowledge_bases）"""
+    migration_path = Path(__file__).resolve().parents[1] / "migrations" / "001_control_plane.sql"
+    await DatabaseManager.execute(migration_path.read_text(encoding="utf-8"))
+
+
 async def init_database():
     """初始化数据库表"""
     try:
@@ -168,6 +175,8 @@ async def init_database():
         logger.info("正在创建数据库 schema 和表...")
         # 先创建 schema
         await DatabaseManager.execute(CREATE_SCHEMA_RAG_IF_NOT_EXISTS)
+        # 控制面表（幂等迁移）
+        await apply_control_plane_migration()
         # 再创建表
         await DatabaseManager.execute(CREATE_TABLE_PARSED_DOCUMENTS)
         # [新增] 创建任务表
