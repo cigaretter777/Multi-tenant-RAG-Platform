@@ -3,6 +3,8 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from middleware.legacy_api_guard import LegacyApiGuardMiddleware
+
 from platform_api.knowledge_bases import get_knowledge_base_service
 from platform_api.router import router
 from platform_auth.dependencies import get_current_principal
@@ -115,3 +117,30 @@ def test_missing_bearer_token_returns_401():
 
     assert response.status_code == 401
     assert response.headers.get("www-authenticate") == "Bearer"
+
+
+def _build_legacy_app(enabled: bool):
+    app = FastAPI()
+
+    @app.post("/embedding/query")
+    async def legacy_query():
+        return {"ok": True}
+
+    app.add_middleware(LegacyApiGuardMiddleware, enabled=enabled)
+    return TestClient(app)
+
+
+def test_legacy_api_is_hidden_when_disabled():
+    client = _build_legacy_app(False)
+
+    response = client.post("/embedding/query", json={})
+
+    assert response.status_code == 404
+
+
+def test_legacy_api_can_be_enabled_explicitly():
+    client = _build_legacy_app(True)
+
+    response = client.post("/embedding/query", json={})
+
+    assert response.status_code == 200

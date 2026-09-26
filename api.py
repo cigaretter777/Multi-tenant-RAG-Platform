@@ -58,6 +58,14 @@ app = FastAPI(
     version="1.1.0"
 )
 
+# ============ 平台 v1 路由与旧接口守卫 ============
+
+from middleware.legacy_api_guard import LegacyApiGuardMiddleware
+from platform_api.router import router as platform_router
+
+app.add_middleware(LegacyApiGuardMiddleware, enabled=settings.legacy_api_enabled)
+app.include_router(platform_router, prefix="/v1")
+
 # ============ 全局变量 ============
 
 milvus_cfg: Dict[str, Any] = {}
