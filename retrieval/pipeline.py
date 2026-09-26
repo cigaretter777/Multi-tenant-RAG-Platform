@@ -14,12 +14,18 @@ from retrieval.context_budget import select_within_budget
 from retrieval.fusion import rrf_fusion
 from retrieval.query_rewrite import identity_rewriter
 from retrieval.rerank import PassthroughReranker
+from retrieval.router import QueryRouter
 from retrieval.tracing import RetrievalTrace
 
 STRATEGIES: Dict[str, tuple] = {
     "vector": ("dense",),
     "hybrid": ("bm25", "dense", "sparse"),
+    "graph": ("graph",),
+    "hybrid_graph": ("bm25", "dense", "sparse", "graph"),
 }
+
+# 图谱源可降级：超时/失败不阻断普通 RAG 链路（设计文档 §7.5）
+OPTIONAL_SOURCES = {"graph"}
 
 
 @dataclass
@@ -36,14 +42,18 @@ class RetrievalPipeline:
         budget_tokens: int = 2048,
         fusion_k: int = 60,
         query_rewriter=None,
+        router=None,
     ):
         self.retrievers = retrievers
         self.reranker = reranker or PassthroughReranker()
         self.budget_tokens = budget_tokens
         self.fusion_k = fusion_k
         self.query_rewriter = query_rewriter or identity_rewriter
+        self.router = router or QueryRouter()
 
     async def retrieve(self, question: str, ctx: RetrievalContext, strategy: str = "hybrid") -> RetrievalResult:
+        if strategy == "auto":
+            strategy = self.router.route(question)
         names = STRATEGIES[strategy]
         trace = RetrievalTrace(
             trace_id=uuid.uuid4().hex,
@@ -56,11 +66,18 @@ class RetrievalPipeline:
         lists: Dict[str, List[Candidate]] = {}
         for name in names:
             started = time.perf_counter()
-            lists[name] = await self.retrievers[name].retrieve(rewritten, ctx)
-            trace.sources[name] = {
-                "latency_ms": round((time.perf_counter() - started) * 1000, 3),
-                "count": len(lists[name]),
-            }
+            try:
+                lists[name] = await self.retrievers[name].retrieve(rewritten, ctx)
+                trace.sources[name] = {
+                    "latency_ms": round((time.perf_counter() - started) * 1000, 3),
+                    "count": len(lists[name]),
+                }
+            except Exception as exc:
+                if name not in OPTIONAL_SOURCES:
+                    raise
+                lists[name] = []
+                trace.sources[name] = {"error": str(exc), "count": 0}
+                trace.stages.append(f"degraded:{name}")
 
         if len(names) > 1:
             ranked = rrf_fusion(lists, k=self.fusion_k, top_n=ctx.top_k * 3)
