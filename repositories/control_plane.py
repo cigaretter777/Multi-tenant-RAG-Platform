@@ -65,3 +65,28 @@ class ControlPlaneRepository:
         """
         row = await self.database.fetchrow(query, tenant_id, kb_id)
         return dict(row) if row else None
+
+    async def create_tenant_principal_and_key(
+        self,
+        tenant_id: UUID,
+        tenant_name: str,
+        principal_id: UUID,
+        principal_name: str,
+        key_id: UUID,
+        key_prefix: str,
+        key_digest: str,
+    ) -> None:
+        """单事务写入租户、主体与 API Key，避免留下半截 bootstrap 记录。"""
+        async with self.database.transaction() as connection:
+            await connection.execute(
+                "INSERT INTO rag.tenants (id, name) VALUES ($1, $2)",
+                tenant_id, tenant_name,
+            )
+            await connection.execute(
+                "INSERT INTO rag.principals (id, tenant_id, name) VALUES ($1, $2, $3)",
+                principal_id, tenant_id, principal_name,
+            )
+            await connection.execute(
+                "INSERT INTO rag.api_keys (id, principal_id, key_prefix, key_digest) VALUES ($1, $2, $3, $4)",
+                key_id, principal_id, key_prefix, key_digest,
+            )

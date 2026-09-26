@@ -104,6 +104,22 @@ uvicorn api:app --host 0.0.0.0 --port 8000 --workers 4
 
 服务启动后访问：http://localhost:8000/docs
 
+## 平台 v1 鉴权快速开始（Phase 1）
+
+控制面 API 使用 API Key 鉴权：租户身份由服务端从 Key 推导，客户端不能自行声明。
+
+```bash
+# 1. 创建本地租户并生成一次性 API Key（仅打印一次，切勿提交入库）
+python scripts/bootstrap_tenant.py --tenant-name demo --principal-name developer
+
+# 2. 使用该 Key 调用 v1 接口
+export RAG_API_KEY=rag_<bootstrap 打印的完整 key>
+curl -H "Authorization: Bearer $RAG_API_KEY" http://localhost:8000/v1/knowledge-bases
+```
+
+- bootstrap 只在 stdout 打印一次 raw key；数据库仅保存 key 前缀与 HMAC-SHA256 摘要（加盐 pepper 见 `.env` 的 `API_KEY_PEPPER`）。
+- 旧版 `/embedding/*` 接口默认返回 404；如需临时兼容旧客户端，设置 `LEGACY_API_ENABLED=true`。
+
 ## API 接口
 
 ### 1. 文件处理（解析 + 向量化）

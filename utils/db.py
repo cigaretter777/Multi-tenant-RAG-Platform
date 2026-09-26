@@ -4,6 +4,7 @@ PostgreSQL 数据库连接管理模块
 提供数据库连接池和基本的数据库操作
 """
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 import asyncpg
 from typing import Optional, Dict, Any, List
@@ -93,6 +94,15 @@ class DatabaseManager:
         pool = cls.get_pool()
         async with pool.acquire() as conn:
             return await conn.executemany(command, args)
+
+    @classmethod
+    @asynccontextmanager
+    async def transaction(cls):
+        """获取单一连接并开启事务（用于跨表原子写入）"""
+        pool = cls.get_pool()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                yield conn
 
 
 # ============ 数据库初始化表 ============
