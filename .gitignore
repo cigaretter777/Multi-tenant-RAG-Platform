@@ -1,4 +1,6 @@
 # For this project
+.DS_Store
+.claude/settings.local.json
 downloads
 logs
 tmp
@@ -7,7 +9,6 @@ tmp
 .python-version
 hs_err_pid20056.log
 hs_err_pid33328.log
-pyproject.toml
 uv.lock
 misc.xml
 embedding.iml

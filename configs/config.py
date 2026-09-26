@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     app_name: str = Field(default="embedding-service", description="应用名称")
     app_version: str = Field(default="2.0.0", description="应用版本")
     visualization_only: bool = Field(default=False, description="是否仅启动知识可视化接口")
+    api_key_pepper: str = Field(default="", description="HMAC pepper for stored API-key digests")
+    legacy_api_enabled: bool = Field(default=False, description="Expose unauthenticated legacy /embedding APIs")
 
     # ============ Embedding 模型配置 ============
     embedding_model_name: str = Field(default="bge-m3-finetune", description="Embedding 模型名称")
