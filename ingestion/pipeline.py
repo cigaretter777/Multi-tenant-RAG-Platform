@@ -95,14 +95,14 @@ async def run_parse_version(version_row: Dict, key: VersionKey, deps: PipelineDe
     await deps.queues.submit(
         QueueName.EMBEDDING,
         Priority.NORMAL_INGEST,
-        lambda: deps.embed(version_row, parsed_document_id),
+        lambda: run_embed_version(version_row, key, parsed_document_id, deps),
     )
     if version_row.get("graph_enabled"):
         await repo.advance(version_id, Chain.GRAPH, IngestionStage.GRAPH_PENDING)
         await deps.queues.submit(
             QueueName.GRAPH,
             Priority.GRAPH_BUILD,
-            lambda: deps.build_graph(version_row, parsed_document_id),
+            lambda: run_graph_version(version_row, key, parsed_document_id, deps),
         )
     return parsed
 

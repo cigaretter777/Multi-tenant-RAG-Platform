@@ -133,6 +133,26 @@ curl -H "Authorization: Bearer $RAG_API_KEY" http://localhost:8000/v1/knowledge-
 - bootstrap 只在 stdout 打印一次 raw key；数据库仅保存 key 前缀与 HMAC-SHA256 摘要（加盐 pepper 见 `.env` 的 `API_KEY_PEPPER`）。
 - 旧版 `/embedding/*` 接口默认返回 404；如需临时兼容旧客户端，设置 `LEGACY_API_ENABLED=true`。
 
+### v1 建库与查询（端到端闭环）
+
+```bash
+# 建库：提交文本 → 解析 → 切片 → 向量化 → 状态 indexed
+curl -X POST -H "Authorization: Bearer $RAG_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"kb_id":"<kb uuid>","documents":[{"text":"...","file_name":"手册.pdf"}]}' \
+  http://localhost:8000/v1/ingest
+
+# 查询：多路召回 → RRF → 精排 → 预算 → 流式生成 → 引用校验
+curl -X POST -H "Authorization: Bearer $RAG_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"question":"胎压报警怎么办","kb_ids":["<kb uuid>"],"strategy":"auto"}' \
+  http://localhost:8000/v1/query
+```
+
+默认适配器为 **dev 模式**：内存产物/向量存储 + hash embedding + 抽取式 dev LLM，
+用于无 Milvus/模型服务时跑通全链路（`retrieval/devstore.py`，冒烟测试
+`tests/test_platform_ingest.py`）。生产适配器（Milvus 索引、PG 产物表、真实
+embedding/reranker/LLM/GraphRAG）经依赖覆盖接入，路由契约不变；其检索质量
+未经验证，见 `benchmarks/`。
+
 ## API 接口
 
 ### 1. 文件处理（解析 + 向量化）
